@@ -67,13 +67,23 @@ export const storage = {
       const exportData = {
         version: '1.0',
         exportDate: new Date().toISOString(),
+        application: 'Campus Life Planner',
         data: {
           tasks: appState.tasks || [],
           settings: appState.settings || {},
+          ui: {
+            // Export only persistent UI preferences
+            sortBy: appState.ui?.sortBy || 'date-newest',
+            filterBy: appState.ui?.filterBy || 'all',
+            searchMode: appState.ui?.searchMode || 'text',
+            viewMode: appState.ui?.viewMode || 'table'
+          },
           metadata: {
             totalTasks: (appState.tasks || []).length,
+            settingsCount: Object.keys(appState.settings || {}).length,
             exportedBy: 'Campus Life Planner',
-            format: 'JSON'
+            format: 'JSON',
+            dataVersion: '1.0'
           }
         }
       };
@@ -88,7 +98,7 @@ export const storage = {
   /**
    * Import data from JSON string with validation
    */
-  importData(jsonString) {
+  importData(jsonString, options = {}) {
     try {
       const importedData = JSON.parse(jsonString);
       
@@ -98,8 +108,13 @@ export const storage = {
         throw new Error(`Invalid data format: ${validationResult.errors.join(', ')}`);
       }
       
-      // Extract and merge data
-      const { tasks = [], settings = {} } = importedData.data || importedData;
+      // Extract data from different possible formats
+      const actualData = importedData.data || importedData;
+      const { 
+        tasks = [], 
+        settings = {}, 
+        ui = {} 
+      } = actualData;
       
       // Load current state
       const currentState = this.load('campusLifePlannerState', {
@@ -108,15 +123,53 @@ export const storage = {
         ui: {}
       });
       
+      // Determine import strategy
+      const {
+        mergeMode = 'merge', // 'merge', 'replace', 'append'
+        includeSettings = true,
+        includeUI = true
+      } = options;
+      
+      let mergedTasks;
+      switch (mergeMode) {
+        case 'replace':
+          mergedTasks = tasks;
+          break;
+        case 'append':
+          mergedTasks = [...(currentState.tasks || []), ...tasks];
+          break;
+        case 'merge':
+        default:
+          mergedTasks = this.mergeTasks(currentState.tasks || [], tasks);
+          break;
+      }
+      
       // Merge imported data with current state
       const mergedState = {
         ...currentState,
-        tasks: this.mergeTasks(currentState.tasks || [], tasks),
-        settings: {
+        tasks: mergedTasks
+      };
+      
+      // Include settings if requested
+      if (includeSettings && Object.keys(settings).length > 0) {
+        mergedState.settings = {
           ...currentState.settings,
           ...settings
-        }
-      };
+        };
+      }
+      
+      // Include UI preferences if requested
+      if (includeUI && Object.keys(ui).length > 0) {
+        mergedState.ui = {
+          ...currentState.ui,
+          ...ui,
+          // Reset transient UI state
+          modalOpen: null,
+          toastMessage: null,
+          selectedTasks: [],
+          searchQuery: ''
+        };
+      }
       
       // Save merged state
       const saveSuccess = this.save('campusLifePlannerState', mergedState);
@@ -128,7 +181,10 @@ export const storage = {
         success: true,
         importedTasks: tasks.length,
         totalTasks: mergedState.tasks.length,
-        message: `Successfully imported ${tasks.length} tasks`
+        importedSettings: includeSettings ? Object.keys(settings).length : 0,
+        importedUI: includeUI ? Object.keys(ui).length : 0,
+        mergeMode: mergeMode,
+        message: this.generateImportMessage(tasks.length, settings, ui, mergeMode)
       };
       
     } catch (error) {
@@ -162,19 +218,47 @@ export const storage = {
       if (!Array.isArray(actualData.tasks)) {
         errors.push('Tasks must be an array');
       } else {
-        // Validate each task
+        // Validate each task (limit error reporting to first 5 tasks)
+        const maxTaskErrors = 5;
+        let taskErrorCount = 0;
+        
         actualData.tasks.forEach((task, index) => {
+          if (taskErrorCount >= maxTaskErrors) return;
+          
           const taskErrors = this.validateTask(task);
           if (taskErrors.length > 0) {
             errors.push(`Task ${index + 1}: ${taskErrors.join(', ')}`);
+            taskErrorCount++;
           }
         });
+        
+        if (taskErrorCount >= maxTaskErrors && actualData.tasks.length > maxTaskErrors) {
+          errors.push(`... and ${actualData.tasks.length - maxTaskErrors} more tasks with errors`);
+        }
       }
     }
     
     // Validate settings object
-    if (actualData.settings && typeof actualData.settings !== 'object') {
-      errors.push('Settings must be an object');
+    if (actualData.settings) {
+      if (typeof actualData.settings !== 'object') {
+        errors.push('Settings must be an object');
+      } else {
+        // Validate specific settings
+        const settingsErrors = this.validateSettings(actualData.settings);
+        if (settingsErrors.length > 0) {
+          errors.push(`Settings: ${settingsErrors.join(', ')}`);
+        }
+      }
+    }
+    
+    // Validate UI preferences
+    if (actualData.ui && typeof actualData.ui !== 'object') {
+      errors.push('UI preferences must be an object');
+    }
+    
+    // Check for minimum required data
+    if (!actualData.tasks && !actualData.settings) {
+      errors.push('Import data must contain at least tasks or settings');
     }
     
     return {
@@ -445,6 +529,187 @@ export const storage = {
       return size;
     } catch (error) {
       return -1; // Unknown
+    }
+  },
+
+  /**
+   * Validate settings object
+   */
+  validateSettings(settings) {
+    const errors = [];
+    
+    if (!settings || typeof settings !== 'object') {
+      return ['Settings must be an object'];
+    }
+    
+    // Define valid settings and their types
+    const validSettings = {
+      timeUnit: ['minutes', 'hours', 'both'],
+      weeklyHourTarget: 'number',
+      theme: ['light', 'dark'],
+      defaultTag: 'string',
+      sortPreference: ['date-newest', 'date-oldest', 'title-asc', 'title-desc', 'duration-asc', 'duration-desc'],
+      searchCaseSensitive: 'boolean',
+      autoSave: 'boolean',
+      notifications: 'boolean',
+      compactView: 'boolean',
+      showCompletedTasks: 'boolean',
+      dateFormat: ['YYYY-MM-DD', 'MM/DD/YYYY', 'DD/MM/YYYY'],
+      firstDayOfWeek: 'number'
+    };
+    
+    Object.entries(settings).forEach(([key, value]) => {
+      const validation = validSettings[key];
+      
+      if (!validation) {
+        // Unknown setting - warn but don't error
+        console.warn(`Unknown setting: ${key}`);
+        return;
+      }
+      
+      if (Array.isArray(validation)) {
+        // Enum validation
+        if (!validation.includes(value)) {
+          errors.push(`${key} must be one of: ${validation.join(', ')}`);
+        }
+      } else if (validation === 'number') {
+        if (typeof value !== 'number' || isNaN(value)) {
+          errors.push(`${key} must be a valid number`);
+        } else if (key === 'weeklyHourTarget' && (value < 0 || value > 168)) {
+          errors.push(`${key} must be between 0 and 168 hours`);
+        } else if (key === 'firstDayOfWeek' && (value < 0 || value > 6)) {
+          errors.push(`${key} must be between 0 and 6`);
+        }
+      } else if (validation === 'boolean') {
+        if (typeof value !== 'boolean') {
+          errors.push(`${key} must be a boolean`);
+        }
+      } else if (validation === 'string') {
+        if (typeof value !== 'string') {
+          errors.push(`${key} must be a string`);
+        } else if (key === 'defaultTag' && value.length > 50) {
+          errors.push(`${key} must be 50 characters or less`);
+        }
+      }
+    });
+    
+    return errors;
+  },
+
+  /**
+   * Generate import success message
+   */
+  generateImportMessage(taskCount, settings, ui, mergeMode) {
+    const parts = [];
+    
+    if (taskCount > 0) {
+      parts.push(`${taskCount} task${taskCount !== 1 ? 's' : ''}`);
+    }
+    
+    if (settings && Object.keys(settings).length > 0) {
+      parts.push(`${Object.keys(settings).length} setting${Object.keys(settings).length !== 1 ? 's' : ''}`);
+    }
+    
+    if (ui && Object.keys(ui).length > 0) {
+      parts.push('UI preferences');
+    }
+    
+    if (parts.length === 0) {
+      return 'Import completed (no data imported)';
+    }
+    
+    const modeText = mergeMode === 'replace' ? 'replaced' : 
+                    mergeMode === 'append' ? 'added' : 'imported';
+    
+    return `Successfully ${modeText} ${parts.join(', ')}`;
+  },
+
+  /**
+   * Export settings only
+   */
+  exportSettings() {
+    try {
+      const appState = this.load('campusLifePlannerState', {});
+      const exportData = {
+        version: '1.0',
+        exportDate: new Date().toISOString(),
+        application: 'Campus Life Planner',
+        type: 'settings',
+        data: {
+          settings: appState.settings || {},
+          metadata: {
+            settingsCount: Object.keys(appState.settings || {}).length,
+            exportedBy: 'Campus Life Planner Settings',
+            format: 'JSON'
+          }
+        }
+      };
+      
+      return JSON.stringify(exportData, null, 2);
+    } catch (error) {
+      console.error('Error exporting settings:', error);
+      throw new Error('Failed to export settings. Please try again.');
+    }
+  },
+
+  /**
+   * Import settings only
+   */
+  importSettings(jsonString) {
+    try {
+      const importedData = JSON.parse(jsonString);
+      
+      // Extract settings from different possible formats
+      let settings;
+      if (importedData.data && importedData.data.settings) {
+        settings = importedData.data.settings;
+      } else if (importedData.settings) {
+        settings = importedData.settings;
+      } else {
+        settings = importedData;
+      }
+      
+      // Validate settings
+      const settingsErrors = this.validateSettings(settings);
+      if (settingsErrors.length > 0) {
+        throw new Error(`Invalid settings: ${settingsErrors.join(', ')}`);
+      }
+      
+      // Load current state and merge settings
+      const currentState = this.load('campusLifePlannerState', {
+        tasks: [],
+        settings: {},
+        ui: {}
+      });
+      
+      const mergedState = {
+        ...currentState,
+        settings: {
+          ...currentState.settings,
+          ...settings
+        }
+      };
+      
+      // Save merged state
+      const saveSuccess = this.save('campusLifePlannerState', mergedState);
+      if (!saveSuccess) {
+        throw new Error('Failed to save imported settings');
+      }
+      
+      return {
+        success: true,
+        importedSettings: Object.keys(settings).length,
+        message: `Successfully imported ${Object.keys(settings).length} setting${Object.keys(settings).length !== 1 ? 's' : ''}`
+      };
+      
+    } catch (error) {
+      console.error('Error importing settings:', error);
+      
+      if (error instanceof SyntaxError) {
+        throw new Error('Invalid JSON format. Please check your file and try again.');
+      }
+      
+      throw error;
     }
   }
 };
