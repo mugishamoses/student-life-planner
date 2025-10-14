@@ -2154,3 +2154,82 @@ anced Progress Chart Components */
     grid-template-columns: 1fr;
   }
 }
+/* 
+Import Options Styles */
+.import-options {
+  margin-top: var(--spacing-md);
+}
+
+.import-details {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.import-summary {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--color-surface);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium);
+  border: none;
+  outline: none;
+  transition: background-color var(--transition-base);
+}
+
+.import-summary:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.import-summary::marker {
+  content: '';
+}
+
+.import-summary::-webkit-details-marker {
+  display: none;
+}
+
+.import-summary::before {
+  content: '▶';
+  display: inline-block;
+  margin-right: var(--spacing-xs);
+  transition: transform var(--transition-base);
+}
+
+.import-details[open] .import-summary::before {
+  transform: rotate(90deg);
+}
+
+.import-controls {
+  padding: var(--spacing-md);
+  background-color: var(--color-background);
+  border-top: 1px solid var(--color-border);
+}
+
+.import-controls .form-group {
+  margin-bottom: var(--spacing-sm);
+}
+
+.import-controls .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.import-controls .form-label {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.import-controls .form-help {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-top: var(--spacing-xs);
+  margin-left: calc(1rem + var(--spacing-xs));
+}
+
+.import-controls input[type="radio"],
+.import-controls input[type="checkbox"] {
+  margin: 0;
+  flex-shrink: 0;
+}

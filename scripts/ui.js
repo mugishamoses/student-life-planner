@@ -4,8 +4,9 @@
  */
 
 export class UIManager {
-  constructor(state) {
+  constructor(state, router = null) {
     this.state = state;
+    this.router = router;
     this.currentPage = null;
     this.modalStack = [];
     this.toastQueue = [];
@@ -584,7 +585,10 @@ export class UIManager {
               
               <div class="button-group mt-4">
                 <button class="btn btn--secondary" data-action="export-data">
-                  📤 Export Data
+                  📤 Export All Data
+                </button>
+                <button class="btn btn--secondary" data-action="export-settings">
+                  ⚙️ Export Settings Only
                 </button>
                 <label class="btn btn--secondary" for="import-file">
                   📥 Import Data
@@ -596,6 +600,47 @@ export class UIManager {
                     data-action="import-file"
                   >
                 </label>
+              </div>
+              
+              <div class="import-options mt-3">
+                <details class="import-details">
+                  <summary class="import-summary">Import Options</summary>
+                  <div class="import-controls">
+                    <div class="form-group">
+                      <label class="form-label">
+                        <input type="radio" name="import-mode" value="merge" checked>
+                        Merge with existing data (recommended)
+                      </label>
+                      <div class="form-help">Combines imported data with current data, avoiding duplicates</div>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">
+                        <input type="radio" name="import-mode" value="replace">
+                        Replace all data
+                      </label>
+                      <div class="form-help">Replaces all current data with imported data</div>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">
+                        <input type="radio" name="import-mode" value="append">
+                        Add to existing data
+                      </label>
+                      <div class="form-help">Adds imported data without removing existing data</div>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">
+                        <input type="checkbox" name="include-settings" checked>
+                        Include settings in import
+                      </label>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">
+                        <input type="checkbox" name="include-ui" checked>
+                        Include UI preferences in import
+                      </label>
+                    </div>
+                  </div>
+                </details>
               </div>
               
               <div class="danger-zone mt-6">
@@ -2366,6 +2411,13 @@ export class UIManager {
       });
     });
     
+    // Export settings button
+    document.querySelectorAll('[data-action="export-settings"]').forEach(button => {
+      button.addEventListener('click', () => {
+        this.handleExportSettings();
+      });
+    });
+    
     // Import file input
     document.querySelectorAll('[data-action="import-file"]').forEach(input => {
       input.addEventListener('change', (e) => {
@@ -2696,16 +2748,62 @@ export class UIManager {
   }
 
   /**
+   * Handle settings export
+   */
+  handleExportSettings() {
+    try {
+      const exportData = this.state.storage?.exportSettings() || JSON.stringify({
+        settings: this.state.getSettings(),
+        exportDate: new Date().toISOString(),
+        type: 'settings'
+      }, null, 2);
+      
+      // Create download link
+      const blob = new Blob([exportData], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `campus-life-planner-settings-${new Date().toISOString().split('T')[0]}.json`;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      this.showToast('Settings exported successfully', 'success');
+    } catch (error) {
+      console.error('Settings export error:', error);
+      this.showToast('Failed to export settings', 'error');
+    }
+  }
+
+  /**
    * Handle file import
    */
   handleImportFile(file) {
     if (!file) return;
     
+    // Get import options from the UI
+    const getImportOptions = () => {
+      const importModeRadio = document.querySelector('input[name="import-mode"]:checked');
+      const includeSettingsCheckbox = document.querySelector('input[name="include-settings"]');
+      const includeUICheckbox = document.querySelector('input[name="include-ui"]');
+      
+      return {
+        mergeMode: importModeRadio?.value || 'merge',
+        includeSettings: includeSettingsCheckbox?.checked !== false,
+        includeUI: includeUICheckbox?.checked !== false
+      };
+    };
+    
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const jsonData = e.target.result;
-        const importResult = this.state.storage?.importData(jsonData) || this.handleBasicImport(jsonData);
+        const options = getImportOptions();
+        
+        const importResult = this.state.storage?.importData(jsonData, options) || this.handleBasicImport(jsonData);
         
         if (importResult.success) {
           this.showToast(importResult.message, 'success');
@@ -4642,6 +4740,11 @@ class DashboardRenderer {
         this.exportData();
         break;
         
+      case 'export-settings':
+        e.preventDefault();
+        this.exportSettings();
+        break;
+        
       case 'import-file':
         // Handle file input change
         if (e.target.files && e.target.files[0]) {
@@ -4879,6 +4982,36 @@ class DashboardRenderer {
       console.error('Export error:', error);
       this.showToast('Failed to export data', 'error');
       this.announceError('Failed to export data');
+    }
+  }
+
+  /**
+   * Export settings as JSON file
+   */
+  exportSettings() {
+    try {
+      const { storage } = this.state;
+      const jsonData = storage.exportSettings();
+      
+      // Create and download file
+      const blob = new Blob([jsonData], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `campus-life-planner-settings-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      URL.revokeObjectURL(url);
+      
+      this.showToast('Settings exported successfully', 'success');
+      this.announceStatus('Settings exported to file');
+    } catch (error) {
+      console.error('Settings export error:', error);
+      this.showToast('Failed to export settings', 'error');
+      this.announceError('Failed to export settings');
     }
   }
 

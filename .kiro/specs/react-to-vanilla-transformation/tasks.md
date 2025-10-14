@@ -196,23 +196,14 @@
 
 - [x] 9. Create settings and configuration system
 
-
-
-
-
-
   - [x] 9.1 Implement settings management
-
-
 
     - Create time unit configuration (minutes/hours/both)
     - Add weekly target setting with persistence
     - Implement default preferences
     - _Requirements: 8.1, 8.2, 8.3_
 
-
-
-  - [ ] 9.2 Build import/export functionality
+  - [x] 9.2 Build import/export functionality
 
     - Create JSON export with proper formatting
     - Implement JSON import with comprehensive validation
@@ -222,22 +213,24 @@
 
   - [x] 9.3 Add unit conversion utilities
 
-
     - Implement minute-to-hour conversions
     - Create display formatting based on user preference
     - Add conversion helpers for calculations
     - _Requirements: 8.4_
 
-- [ ] 10. Implement client-side routing and navigation
+- [-] 10. Implement client-side routing and navigation
 
-  - [ ] 10.1 Create Router class for single-page navigation
+
+
+  - [x] 10.1 Create Router class for single-page navigation
 
     - Implement hash-based routing (#about, #dashboard, etc.)
     - Add browser history integration
     - Create navigation state management
     - _Requirements: 10.1, 10.2_
 
-  - [ ] 10.2 Build navigation components
+  - [x] 10.2 Build navigation components
+
     - Create responsive header with navigation menu
     - Implement active page highlighting
     - Add mobile menu toggle functionality

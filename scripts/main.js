@@ -8,6 +8,7 @@
 import { AppState } from './state.js';
 import { UIManager } from './ui.js';
 import { storage } from './storage.js';
+import { Router, createDefaultRouter } from './router.js';
 
 // Application class to manage the entire app
 class App {
@@ -16,6 +17,7 @@ class App {
     this.modules = {};
     this.state = null;
     this.ui = null;
+    this.router = null;
   }
 
   /**
@@ -32,14 +34,20 @@ class App {
       this.state = new AppState();
       this.state.storage = storage; // Attach storage module
       
-      // Initialize UI manager
-      this.ui = new UIManager(this.state);
+      // Initialize router
+      this.router = createDefaultRouter();
+      
+      // Initialize UI manager with router
+      this.ui = new UIManager(this.state, this.router);
+      
+      // Set up route handlers
+      this.setupRoutes();
       
       // Set up global event listeners
       this.setupEventListeners();
       
-      // Set up navigation
-      this.setupNavigation();
+      // Start router (this will handle initial navigation)
+      this.router.start();
       
       // Render initial page
       this.ui.render();
@@ -97,6 +105,19 @@ class App {
     // Handle visibility change (for pausing/resuming when tab is not active)
     document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
     
+    // Handle navigation links with router
+    document.addEventListener('click', (e) => {
+      const link = e.target.closest('.nav__link');
+      if (link) {
+        const href = link.getAttribute('href');
+        if (href && href.startsWith('#')) {
+          e.preventDefault();
+          const page = href.substring(1) || 'about';
+          this.navigateToPage(page);
+        }
+      }
+    });
+    
     // Handle mobile menu toggle
     const mobileToggle = document.querySelector('[data-action="toggle-mobile-menu"]');
     if (mobileToggle) {
@@ -108,50 +129,66 @@ class App {
     if (mobileOverlay) {
       mobileOverlay.addEventListener('click', this.closeMobileMenu.bind(this));
     }
+    
+    // Handle keyboard events for navigation
+    document.addEventListener('keydown', (e) => {
+      // Close mobile menu on Escape key
+      if (e.key === 'Escape') {
+        const navMenu = document.querySelector('.nav__menu');
+        if (navMenu && navMenu.classList.contains('nav__menu--open')) {
+          this.closeMobileMenu();
+        }
+      }
+    });
   }
 
   /**
-   * Set up navigation handling
+   * Set up route handlers
    */
-  setupNavigation() {
-    // Handle hash changes for routing
-    window.addEventListener('hashchange', this.handleHashChange.bind(this));
-    
-    // Handle navigation links
-    document.querySelectorAll('.nav__link').forEach(link => {
-      link.addEventListener('click', (e) => {
-        const href = link.getAttribute('href');
-        if (href && href.startsWith('#')) {
-          e.preventDefault();
-          const page = href.substring(1) || 'about';
-          this.navigateToPage(page);
-        }
-      });
+  setupRoutes() {
+    // Set up route handlers for each page
+    this.router.addRoute('about', (routeInfo) => {
+      this.handleRouteChange('about', routeInfo);
     });
     
-    // Handle initial navigation
-    this.handleHashChange();
+    this.router.addRoute('dashboard', (routeInfo) => {
+      this.handleRouteChange('dashboard', routeInfo);
+    });
+    
+    this.router.addRoute('tasks', (routeInfo) => {
+      this.handleRouteChange('tasks', routeInfo);
+    });
+    
+    this.router.addRoute('settings', (routeInfo) => {
+      this.handleRouteChange('settings', routeInfo);
+    });
   }
 
   /**
-   * Handle hash change for routing
+   * Handle route changes
    */
-  handleHashChange() {
-    const hash = window.location.hash.substring(1) || 'about';
-    this.navigateToPage(hash);
-  }
-
-  /**
-   * Navigate to a specific page
-   */
-  navigateToPage(page) {
+  handleRouteChange(page, routeInfo) {
     if (this.state) {
       this.state.updateUIState({ currentPage: page });
     }
     
-    // Update URL hash
-    if (window.location.hash !== `#${page}`) {
-      window.location.hash = page;
+    // Let UI manager handle the page rendering
+    if (this.ui) {
+      this.ui.renderPage(page);
+    }
+    
+    // Close mobile menu if open
+    this.closeMobileMenu();
+    
+    console.log(`Navigated to ${page} page`, routeInfo);
+  }
+
+  /**
+   * Navigate to a specific page using the router
+   */
+  navigateToPage(page) {
+    if (this.router) {
+      this.router.navigate(page);
     }
   }
 
@@ -173,11 +210,14 @@ class App {
         overlay?.classList.add('mobile-menu-overlay--open');
         mobileToggle.setAttribute('aria-expanded', 'true');
         
-        // Focus first menu item
+        // Focus first menu item for keyboard accessibility
         const firstLink = navMenu.querySelector('.nav__link');
         if (firstLink) {
           firstLink.focus();
         }
+        
+        // Set up focus trap for mobile menu
+        this.setupMobileMenuFocusTrap(navMenu);
       }
     }
   }
@@ -195,8 +235,52 @@ class App {
       overlay?.classList.remove('mobile-menu-overlay--open');
       mobileToggle.setAttribute('aria-expanded', 'false');
       
-      // Return focus to toggle button
+      // Return focus to toggle button for keyboard accessibility
       mobileToggle.focus();
+      
+      // Remove focus trap
+      this.removeMobileMenuFocusTrap();
+    }
+  }
+
+  /**
+   * Set up focus trap for mobile menu
+   */
+  setupMobileMenuFocusTrap(menuElement) {
+    const focusableElements = menuElement.querySelectorAll(
+      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    
+    if (focusableElements.length === 0) return;
+    
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+    
+    this.mobileMenuKeyHandler = (e) => {
+      if (e.key === 'Tab') {
+        if (e.shiftKey && document.activeElement === firstElement) {
+          e.preventDefault();
+          lastElement.focus();
+        } else if (!e.shiftKey && document.activeElement === lastElement) {
+          e.preventDefault();
+          firstElement.focus();
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        this.closeMobileMenu();
+      }
+    };
+    
+    document.addEventListener('keydown', this.mobileMenuKeyHandler);
+  }
+
+  /**
+   * Remove focus trap for mobile menu
+   */
+  removeMobileMenuFocusTrap() {
+    if (this.mobileMenuKeyHandler) {
+      document.removeEventListener('keydown', this.mobileMenuKeyHandler);
+      this.mobileMenuKeyHandler = null;
     }
   }
 

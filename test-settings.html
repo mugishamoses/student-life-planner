@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings System Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .pass { color: green; }
+        .fail { color: red; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Settings and Configuration System Test</h1>
+    <div id="test-results"></div>
+
+    <script type="module">
+        import { utils } from './scripts/utils.js';
+        import { SettingsManager, DEFAULT_SETTINGS } from './scripts/settings.js';
+        import { storage } from './scripts/storage.js';
+        import { AppState } from './scripts/state.js';
+
+        const results = document.getElementById('test-results');
+        
+        function addResult(title, success, details = '') {
+            const div = document.createElement('div');
+            div.className = 'test-section';
+            div.innerHTML = `
+                <h3 class="${success ? 'pass' : 'fail'}">${success ? '✓' : '✗'} ${title}</h3>
+                ${details ? `<pre>${details}</pre>` : ''}
+            `;
+            results.appendChild(div);
+        }
+
+        // Test 1: Unit Conversion Utilities
+        try {
+            const minutes = 150;
+            const hours = utils.minutesToHours(minutes);
+            const backToMinutes = utils.hoursToMinutes(hours);
+            
+            const formatted = utils.formatDuration(minutes, 'both', true);
+            const validation = utils.validateDurationInput('2.5', 'hours');
+            
+            addResult('Unit Conversion Utilities', 
+                hours === 2.5 && backToMinutes === 150 && formatted === '2 hr 30 min' && validation.isValid,
+                `150 min → ${hours} hr → ${backToMinutes} min\nFormatted: "${formatted}"\nValidation: ${JSON.stringify(validation, null, 2)}`
+            );
+        } catch (error) {
+            addResult('Unit Conversion Utilities', false, `Error: ${error.message}`);
+        }
+
+        // Test 2: Settings Management
+        try {
+            const appState = new AppState();
+            const settingsManager = new SettingsManager(appState);
+            
+            // Test setting update
+            const newTimeUnit = settingsManager.updateSetting('timeUnit', 'hours');
+            const timeUnitConfig = settingsManager.getTimeUnitConfig();
+            const weeklyConfig = settingsManager.getWeeklyTargetConfig();
+            
+            addResult('Settings Management',
+                newTimeUnit === 'hours' && timeUnitConfig.unit === 'hours',
+                `Time unit: ${newTimeUnit}\nConfig: ${JSON.stringify(timeUnitConfig, null, 2)}\nWeekly: ${JSON.stringify(weeklyConfig, null, 2)}`
+            );
+        } catch (error) {
+            addResult('Settings Management', false, `Error: ${error.message}`);
+        }
+
+        // Test 3: Import/Export Functionality
+        try {
+            // Create test data
+            const testData = {
+                version: '1.0',
+                exportDate: new Date().toISOString(),
+                data: {
+                    tasks: [
+                        {
+                            id: 'test_task_1',
+                            title: 'Test Task',
+                            dueDate: '2025-01-15',
+                            duration: 60,
+                            tag: 'Test',
+                            status: 'Pending'
+                        }
+                    ],
+                    settings: {
+                        timeUnit: 'minutes',
+                        weeklyHourTarget: 35
+                    }
+                }
+            };
+            
+            // Test export
+            const exported = storage.exportData();
+            const exportedObj = JSON.parse(exported);
+            
+            // Test import validation
+            const validation = storage.validateImportData(testData);
+            
+            // Test settings export/import
+            const settingsExport = storage.exportSettings();
+            const settingsObj = JSON.parse(settingsExport);
+            
+            addResult('Import/Export Functionality',
+                exportedObj.version && validation.isValid && settingsObj.type === 'settings',
+                `Export structure: ${Object.keys(exportedObj).join(', ')}\nValidation: ${validation.isValid}\nSettings export type: ${settingsObj.type}`
+            );
+        } catch (error) {
+            addResult('Import/Export Functionality', false, `Error: ${error.message}`);
+        }
+
+        // Test 4: Weekly Progress Calculation
+        try {
+            const testTasks = [
+                {
+                    id: '1',
+                    title: 'Task 1',
+                    dueDate: new Date().toISOString().split('T')[0], // Today
+                    duration: 120, // 2 hours
+                    status: 'Complete'
+                },
+                {
+                    id: '2',
+                    title: 'Task 2',
+                    dueDate: new Date().toISOString().split('T')[0], // Today
+                    duration: 90, // 1.5 hours
+                    status: 'Complete'
+                }
+            ];
+            
+            const progress = utils.calculateWeeklyProgress(testTasks, 40);
+            const totalDuration = utils.calculateTotalDuration(testTasks, 'both', true);
+            
+            addResult('Weekly Progress Calculation',
+                progress.completedHours === 3.5 && progress.targetHours === 40,
+                `Progress: ${JSON.stringify(progress, null, 2)}\nTotal Duration: ${totalDuration}`
+            );
+        } catch (error) {
+            addResult('Weekly Progress Calculation', false, `Error: ${error.message}`);
+        }
+
+        // Test 5: Settings Validation
+        try {
+            const appState = new AppState();
+            const settingsManager = new SettingsManager(appState);
+            
+            // Test valid setting
+            const validResult = settingsManager.validateSetting('timeUnit', 'hours');
+            
+            // Test invalid setting
+            const invalidResult = settingsManager.validateSetting('timeUnit', 'invalid');
+            
+            // Test settings options
+            const options = settingsManager.getSettingOptions('timeUnit');
+            
+            addResult('Settings Validation',
+                validResult.isValid && !invalidResult.isValid && options.values.length === 3,
+                `Valid: ${JSON.stringify(validResult)}\nInvalid: ${JSON.stringify(invalidResult)}\nOptions: ${JSON.stringify(options, null, 2)}`
+            );
+        } catch (error) {
+            addResult('Settings Validation', false, `Error: ${error.message}`);
+        }
+
+        console.log('All tests completed!');
+    </script>
+</body>
+</html>
