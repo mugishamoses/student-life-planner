@@ -23,7 +23,8 @@ export class AppState {
         sortBy: 'date-newest',
         filterBy: 'all',
         selectedTasks: [],
-        toastMessage: null
+        toastMessage: null,
+        viewMode: 'table'
       }
     };
     
@@ -162,7 +163,7 @@ export class AppState {
     
     // UI state changes don't need persistence for most properties
     // Only persist certain UI preferences
-    const persistentUIProps = ['sortBy', 'filterBy', 'searchMode'];
+    const persistentUIProps = ['sortBy', 'filterBy', 'searchMode', 'viewMode'];
     const shouldPersist = Object.keys(updates).some(key => 
       persistentUIProps.includes(key)
     );
@@ -208,7 +209,9 @@ export class AppState {
             // Reset transient UI state
             modalOpen: null,
             toastMessage: null,
-            selectedTasks: []
+            selectedTasks: [],
+            // Preserve viewMode preference
+            viewMode: parsedState.ui?.viewMode || 'table'
           }
         };
       }
@@ -227,7 +230,8 @@ export class AppState {
           // Only save persistent UI state
           sortBy: this.state.ui.sortBy,
           filterBy: this.state.ui.filterBy,
-          searchMode: this.state.ui.searchMode
+          searchMode: this.state.ui.searchMode,
+          viewMode: this.state.ui.viewMode
         }
       };
       
@@ -271,7 +275,8 @@ export class AppState {
         sortBy: 'date-newest',
         filterBy: 'all',
         selectedTasks: [],
-        toastMessage: null
+        toastMessage: null,
+        viewMode: 'table'
       }
     };
     

@@ -5,11 +5,17 @@
  * It initializes the application and sets up the core modules.
  */
 
+import { AppState } from './state.js';
+import { UIManager } from './ui.js';
+import { storage } from './storage.js';
+
 // Application class to manage the entire app
 class App {
   constructor() {
     this.initialized = false;
     this.modules = {};
+    this.state = null;
+    this.ui = null;
   }
 
   /**
@@ -22,16 +28,26 @@ class App {
       // Set up basic DOM structure if needed
       this.setupBasicStructure();
       
-      // Set up event listeners
+      // Initialize state management
+      this.state = new AppState();
+      this.state.storage = storage; // Attach storage module
+      
+      // Initialize UI manager
+      this.ui = new UIManager(this.state);
+      
+      // Set up global event listeners
       this.setupEventListeners();
+      
+      // Set up navigation
+      this.setupNavigation();
+      
+      // Render initial page
+      this.ui.render();
       
       // Mark as initialized
       this.initialized = true;
       
       console.log('Campus Life Planner initialized successfully');
-      
-      // Show welcome message
-      this.showWelcomeMessage();
       
     } catch (error) {
       console.error('Failed to initialize Campus Life Planner:', error);
@@ -75,47 +91,116 @@ class App {
    * Set up global event listeners
    */
   setupEventListeners() {
-    // Handle keyboard navigation
-    document.addEventListener('keydown', this.handleKeydown.bind(this));
-    
     // Handle window resize for responsive behavior
     window.addEventListener('resize', this.handleResize.bind(this));
     
     // Handle visibility change (for pausing/resuming when tab is not active)
     document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
-  }
-
-  /**
-   * Handle global keyboard events
-   */
-  handleKeydown(event) {
-    // Handle Escape key to close modals/menus
-    if (event.key === 'Escape') {
-      this.handleEscapeKey();
+    
+    // Handle mobile menu toggle
+    const mobileToggle = document.querySelector('[data-action="toggle-mobile-menu"]');
+    if (mobileToggle) {
+      mobileToggle.addEventListener('click', this.toggleMobileMenu.bind(this));
     }
     
-    // Handle Enter key for button-like elements
-    if (event.key === 'Enter' && event.target.getAttribute('role') === 'button') {
-      event.target.click();
+    // Handle mobile menu overlay
+    const mobileOverlay = document.querySelector('.mobile-menu-overlay');
+    if (mobileOverlay) {
+      mobileOverlay.addEventListener('click', this.closeMobileMenu.bind(this));
     }
   }
 
   /**
-   * Handle Escape key press
+   * Set up navigation handling
    */
-  handleEscapeKey() {
-    // Close any open modals
-    const openModal = document.querySelector('.modal-overlay');
-    if (openModal) {
-      this.closeModal();
+  setupNavigation() {
+    // Handle hash changes for routing
+    window.addEventListener('hashchange', this.handleHashChange.bind(this));
+    
+    // Handle navigation links
+    document.querySelectorAll('.nav__link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        const href = link.getAttribute('href');
+        if (href && href.startsWith('#')) {
+          e.preventDefault();
+          const page = href.substring(1) || 'about';
+          this.navigateToPage(page);
+        }
+      });
+    });
+    
+    // Handle initial navigation
+    this.handleHashChange();
+  }
+
+  /**
+   * Handle hash change for routing
+   */
+  handleHashChange() {
+    const hash = window.location.hash.substring(1) || 'about';
+    this.navigateToPage(hash);
+  }
+
+  /**
+   * Navigate to a specific page
+   */
+  navigateToPage(page) {
+    if (this.state) {
+      this.state.updateUIState({ currentPage: page });
     }
     
-    // Close mobile menu if open
-    const mobileMenu = document.querySelector('.mobile-menu.open');
-    if (mobileMenu) {
-      this.closeMobileMenu();
+    // Update URL hash
+    if (window.location.hash !== `#${page}`) {
+      window.location.hash = page;
     }
   }
+
+  /**
+   * Toggle mobile menu
+   */
+  toggleMobileMenu() {
+    const navMenu = document.querySelector('.nav__menu');
+    const mobileToggle = document.querySelector('[data-action="toggle-mobile-menu"]');
+    const overlay = document.querySelector('.mobile-menu-overlay');
+    
+    if (navMenu && mobileToggle) {
+      const isOpen = navMenu.classList.contains('nav__menu--open');
+      
+      if (isOpen) {
+        this.closeMobileMenu();
+      } else {
+        navMenu.classList.add('nav__menu--open');
+        overlay?.classList.add('mobile-menu-overlay--open');
+        mobileToggle.setAttribute('aria-expanded', 'true');
+        
+        // Focus first menu item
+        const firstLink = navMenu.querySelector('.nav__link');
+        if (firstLink) {
+          firstLink.focus();
+        }
+      }
+    }
+  }
+
+  /**
+   * Close mobile menu
+   */
+  closeMobileMenu() {
+    const navMenu = document.querySelector('.nav__menu');
+    const mobileToggle = document.querySelector('[data-action="toggle-mobile-menu"]');
+    const overlay = document.querySelector('.mobile-menu-overlay');
+    
+    if (navMenu && mobileToggle) {
+      navMenu.classList.remove('nav__menu--open');
+      overlay?.classList.remove('mobile-menu-overlay--open');
+      mobileToggle.setAttribute('aria-expanded', 'false');
+      
+      // Return focus to toggle button
+      mobileToggle.focus();
+    }
+  }
+
+
 
   /**
    * Handle window resize
@@ -151,116 +236,9 @@ class App {
     }
   }
 
-  /**
-   * Close any open modal
-   */
-  closeModal() {
-    const modal = document.querySelector('.modal-overlay');
-    if (modal) {
-      modal.remove();
-    }
-  }
 
-  /**
-   * Close mobile menu
-   */
-  closeMobileMenu() {
-    const mobileMenu = document.querySelector('.mobile-menu');
-    const overlay = document.querySelector('.mobile-menu-overlay');
-    
-    if (mobileMenu) {
-      mobileMenu.classList.remove('open');
-    }
-    
-    if (overlay) {
-      overlay.classList.remove('open');
-    }
-  }
 
-  /**
-   * Show welcome message
-   */
-  showWelcomeMessage() {
-    const mainContent = document.getElementById('main-content');
-    if (mainContent) {
-      mainContent.innerHTML = `
-        <div class="container">
-          <div class="card">
-            <div class="card__header">
-              <h1 class="card__title">Welcome to Campus Life Planner</h1>
-            </div>
-            <div class="card__body">
-              <p>Your personal academic task management system is ready to help you stay organized and productive.</p>
-              <p>This application will help you:</p>
-              <ul>
-                <li>Track your academic tasks and assignments</li>
-                <li>Set and monitor weekly time goals</li>
-                <li>Organize tasks by categories and due dates</li>
-                <li>Search and filter your tasks efficiently</li>
-              </ul>
-            </div>
-            <div class="card__footer">
-              <button class="btn btn--primary" onclick="app.showGettingStarted()">
-                Get Started
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-  }
 
-  /**
-   * Show getting started guide
-   */
-  showGettingStarted() {
-    const mainContent = document.getElementById('main-content');
-    if (mainContent) {
-      mainContent.innerHTML = `
-        <div class="container">
-          <div class="card">
-            <div class="card__header">
-              <h1 class="card__title">Getting Started</h1>
-            </div>
-            <div class="card__body">
-              <p>The Campus Life Planner is currently being set up. Here's what's available:</p>
-              
-              <h2>Current Features</h2>
-              <ul>
-                <li>✅ Responsive design framework</li>
-                <li>✅ Accessibility features (ARIA, keyboard navigation)</li>
-                <li>✅ Mobile-first CSS architecture</li>
-                <li>✅ Component-based styling system</li>
-              </ul>
-              
-              <h2>Coming Soon</h2>
-              <ul>
-                <li>🔄 Task management system</li>
-                <li>🔄 Data persistence with localStorage</li>
-                <li>🔄 Advanced search and filtering</li>
-                <li>🔄 Statistics dashboard</li>
-                <li>🔄 Settings and preferences</li>
-              </ul>
-              
-              <h2>Keyboard Navigation</h2>
-              <p>This application is fully keyboard accessible:</p>
-              <ul>
-                <li><kbd>Tab</kbd> - Navigate between interactive elements</li>
-                <li><kbd>Enter</kbd> - Activate buttons and links</li>
-                <li><kbd>Escape</kbd> - Close modals and menus</li>
-                <li><kbd>Space</kbd> - Toggle checkboxes and buttons</li>
-              </ul>
-            </div>
-            <div class="card__footer">
-              <button class="btn btn--secondary" onclick="app.showWelcomeMessage()">
-                Back to Welcome
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-  }
 
   /**
    * Show error message to user
