@@ -6,7 +6,7 @@
  */
 
 import { AppState } from './state.js';
-import { UIManager } from './ui.js';
+import { UIManager } from './ui/index.js';
 import { storage } from './storage.js';
 import { Router, createDefaultRouter } from './router.js';
 import { createEventManager } from './events.js';
