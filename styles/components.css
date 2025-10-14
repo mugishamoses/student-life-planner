@@ -293,3 +293,65 @@
   background-color: #fee2e2;
   color: var(--color-error);
 }
+
+/* Search Highlighting Components */
+.search-highlight {
+  background-color: #fef08a; /* Yellow highlight */
+  color: #854d0e; /* Dark yellow text for contrast */
+  padding: 0.125rem 0.25rem;
+  border-radius: var(--radius-sm);
+  font-weight: var(--font-weight-medium);
+  /* Ensure sufficient contrast ratio for accessibility */
+  box-shadow: 0 0 0 1px #eab308;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .search-highlight {
+    background-color: #000000;
+    color: #ffffff;
+    border: 2px solid #ffffff;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .search-highlight {
+    transition: none;
+  }
+}
+
+/* Focus styles for highlighted elements */
+.search-highlight:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Search result summary styles */
+.search-summary {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-light);
+  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-sm);
+  background-color: var(--color-surface);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-primary);
+}
+
+.search-summary--no-results {
+  border-left-color: var(--color-warning);
+  background-color: #fffbeb;
+}
+
+/* Screen reader only class for accessibility */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
