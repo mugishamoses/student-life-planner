@@ -323,8 +323,8 @@
     grid-template-columns: 3fr 1fr 1fr;
   }
 }
-/
-* Keyboard Navigation Enhancements */
+
+/* Keyboard Navigation Enhancements */
 .nav__link:focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 2px;

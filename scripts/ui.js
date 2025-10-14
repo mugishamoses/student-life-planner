@@ -4,13 +4,14 @@
  */
 
 export class UIManager {
-  constructor(state, router = null) {
+  constructor(state, router = null, eventManager = null, modalManager = null, toastManager = null) {
     this.state = state;
     this.router = router;
+    this.eventManager = eventManager;
+    this.modalManager = modalManager;
+    this.toastManager = toastManager;
     this.currentPage = null;
-    this.modalStack = [];
-    this.toastQueue = [];
-    this.focusManager = new FocusManager();
+    // Focus manager is now handled by modalManager
     
     // Component cache for efficient updates
     this.componentCache = new Map();
@@ -853,6 +854,33 @@ export class UIManager {
     const element = document.getElementById(componentName);
     if (element) {
       element.innerHTML = this.renderComponent(componentName, props);
+    }
+  }
+
+  /**
+   * Show modal using the modal manager
+   */
+  showModal(type, options = {}) {
+    if (this.modalManager) {
+      this.modalManager.show(type, options);
+    }
+  }
+
+  /**
+   * Hide current modal
+   */
+  hideModal() {
+    if (this.modalManager) {
+      this.modalManager.hide();
+    }
+  }
+
+  /**
+   * Show toast notification
+   */
+  showToast(message, type = 'info', duration = 5000) {
+    if (this.toastManager) {
+      this.toastManager.show(message, type, duration);
     }
   }
 

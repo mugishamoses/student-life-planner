@@ -9,6 +9,8 @@ import { AppState } from './state.js';
 import { UIManager } from './ui.js';
 import { storage } from './storage.js';
 import { Router, createDefaultRouter } from './router.js';
+import { createEventManager } from './events.js';
+import { createModalManager, createToastManager } from './modals.js';
 
 // Application class to manage the entire app
 class App {
@@ -18,6 +20,9 @@ class App {
     this.state = null;
     this.ui = null;
     this.router = null;
+    this.eventManager = null;
+    this.modalManager = null;
+    this.toastManager = null;
   }
 
   /**
@@ -30,6 +35,13 @@ class App {
       // Set up basic DOM structure if needed
       this.setupBasicStructure();
       
+      // Initialize centralized event management
+      this.eventManager = createEventManager();
+      
+      // Initialize modal and toast managers
+      this.modalManager = createModalManager(this.eventManager);
+      this.toastManager = createToastManager();
+      
       // Initialize state management
       this.state = new AppState();
       this.state.storage = storage; // Attach storage module
@@ -37,14 +49,14 @@ class App {
       // Initialize router
       this.router = createDefaultRouter();
       
-      // Initialize UI manager with router
-      this.ui = new UIManager(this.state, this.router);
+      // Initialize UI manager with all managers
+      this.ui = new UIManager(this.state, this.router, this.eventManager, this.modalManager, this.toastManager);
       
       // Set up route handlers
       this.setupRoutes();
       
-      // Set up global event listeners
-      this.setupEventListeners();
+      // Set up application event handlers
+      this.setupApplicationEventHandlers();
       
       // Start router (this will handle initial navigation)
       this.router.start();
@@ -96,47 +108,289 @@ class App {
   }
 
   /**
-   * Set up global event listeners
+   * Set up application-specific event handlers using the centralized event manager
    */
-  setupEventListeners() {
+  setupApplicationEventHandlers() {
     // Handle window resize for responsive behavior
     window.addEventListener('resize', this.handleResize.bind(this));
     
     // Handle visibility change (for pausing/resuming when tab is not active)
     document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
     
-    // Handle navigation links with router
-    document.addEventListener('click', (e) => {
-      const link = e.target.closest('.nav__link');
-      if (link) {
-        const href = link.getAttribute('href');
-        if (href && href.startsWith('#')) {
-          e.preventDefault();
-          const page = href.substring(1) || 'about';
-          this.navigateToPage(page);
+    // Register application actions with event manager
+    this.eventManager.on('navigate', ({ data }) => {
+      this.navigateToPage(data.page);
+    });
+    
+    this.eventManager.on('toggle-mobile-menu', () => {
+      this.toggleMobileMenu();
+    });
+    
+    this.eventManager.on('close-mobile-menu', () => {
+      this.closeMobileMenu();
+    });
+    
+    this.eventManager.on('show-help', () => {
+      this.navigateToPage('about');
+    });
+    
+    // Register task management actions
+    this.eventManager.on('add-task', () => {
+      if (this.modalManager) {
+        this.modalManager.show('task', { mode: 'add' });
+      }
+    });
+    
+    this.eventManager.on('edit-task', ({ data }) => {
+      if (this.modalManager && this.state) {
+        const task = this.state.getTasks().find(t => t.id === data.taskId);
+        if (task) {
+          this.modalManager.show('task', { mode: 'edit', task });
         }
       }
     });
     
-    // Handle mobile menu toggle
-    const mobileToggle = document.querySelector('[data-action="toggle-mobile-menu"]');
-    if (mobileToggle) {
-      mobileToggle.addEventListener('click', this.toggleMobileMenu.bind(this));
-    }
+    this.eventManager.on('delete-task', ({ data }) => {
+      if (this.modalManager) {
+        this.modalManager.show('confirm', {
+          title: 'Delete Task',
+          message: 'Are you sure you want to delete this task? This action cannot be undone.',
+          confirmAction: 'confirm-delete-task',
+          confirmData: { taskId: data.taskId },
+          confirmClass: 'btn--danger',
+          confirmText: 'Delete Task'
+        });
+      }
+    });
     
-    // Handle mobile menu overlay
-    const mobileOverlay = document.querySelector('.mobile-menu-overlay');
-    if (mobileOverlay) {
-      mobileOverlay.addEventListener('click', this.closeMobileMenu.bind(this));
-    }
+    this.eventManager.on('confirm-delete-task', ({ data }) => {
+      if (this.state && this.toastManager) {
+        this.state.deleteTask(data.taskId);
+        this.modalManager.hide();
+        this.toastManager.show('Task deleted successfully', 'success');
+      }
+    });
     
-    // Handle keyboard events for navigation
-    document.addEventListener('keydown', (e) => {
-      // Close mobile menu on Escape key
-      if (e.key === 'Escape') {
-        const navMenu = document.querySelector('.nav__menu');
-        if (navMenu && navMenu.classList.contains('nav__menu--open')) {
-          this.closeMobileMenu();
+    this.eventManager.on('toggle-task-status', ({ data }) => {
+      if (this.state && this.toastManager) {
+        const task = this.state.getTasks().find(t => t.id === data.taskId);
+        if (task) {
+          const newStatus = task.status === 'Complete' ? 'Pending' : 'Complete';
+          this.state.updateTask(data.taskId, { status: newStatus });
+          
+          const message = newStatus === 'Complete' ? 'Task completed!' : 'Task marked as pending';
+          this.toastManager.show(message, 'success');
+        }
+      }
+    });
+    
+    // Register search and filter actions
+    this.eventManager.on('search-tasks', ({ data }) => {
+      if (this.state) {
+        this.state.updateUIState({ searchQuery: data.query });
+      }
+    });
+    
+    this.eventManager.on('clear-search', () => {
+      if (this.state) {
+        this.state.updateUIState({ searchQuery: '' });
+      }
+    });
+    
+    this.eventManager.on('filter-tasks', ({ data }) => {
+      if (this.state) {
+        this.state.updateUIState({ filterBy: data.filter });
+      }
+    });
+    
+    this.eventManager.on('sort-tasks', ({ data }) => {
+      if (this.state) {
+        this.state.updateUIState({ sortBy: data.sort });
+      }
+    });
+    
+    this.eventManager.on('set-view-mode', ({ data }) => {
+      if (this.state) {
+        this.state.updateUIState({ viewMode: data.view });
+      }
+    });
+    
+    this.eventManager.on('toggle-search-mode', () => {
+      if (this.state) {
+        const currentMode = this.state.getUIState().searchMode || 'text';
+        const newMode = currentMode === 'text' ? 'regex' : 'text';
+        this.state.updateUIState({ searchMode: newMode });
+      }
+    });
+    
+    // Register settings actions
+    this.eventManager.on('update-setting', ({ data }) => {
+      if (this.state) {
+        this.state.updateSettings({ [data.setting]: data.value });
+      }
+    });
+    
+    this.eventManager.on('export-data', () => {
+      if (this.state && this.toastManager) {
+        try {
+          const data = {
+            tasks: this.state.getTasks(),
+            settings: this.state.getSettings(),
+            exportDate: new Date().toISOString(),
+            version: '1.0.0'
+          };
+          
+          const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `campus-life-planner-${new Date().toISOString().split('T')[0]}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+          
+          this.toastManager.show('Data exported successfully', 'success');
+        } catch (error) {
+          console.error('Export failed:', error);
+          this.toastManager.show('Export failed. Please try again.', 'error');
+        }
+      }
+    });
+    
+    this.eventManager.on('export-settings', () => {
+      if (this.state && this.toastManager) {
+        try {
+          const data = {
+            settings: this.state.getSettings(),
+            exportDate: new Date().toISOString(),
+            version: '1.0.0',
+            type: 'settings-only'
+          };
+          
+          const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `campus-life-planner-settings-${new Date().toISOString().split('T')[0]}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+          
+          this.toastManager.show('Settings exported successfully', 'success');
+        } catch (error) {
+          console.error('Settings export failed:', error);
+          this.toastManager.show('Settings export failed. Please try again.', 'error');
+        }
+      }
+    });
+    
+    this.eventManager.on('import-data', ({ data }) => {
+      if (this.state && this.toastManager) {
+        try {
+          // Validate import data structure
+          if (!data.data || typeof data.data !== 'object') {
+            throw new Error('Invalid data format');
+          }
+          
+          const importData = data.data;
+          
+          // Import tasks if present
+          if (importData.tasks && Array.isArray(importData.tasks)) {
+            importData.tasks.forEach(task => {
+              // Validate task structure and add if valid
+              if (task.id && task.title) {
+                this.state.addTask(task);
+              }
+            });
+          }
+          
+          // Import settings if present
+          if (importData.settings && typeof importData.settings === 'object') {
+            this.state.updateSettings(importData.settings);
+          }
+          
+          this.toastManager.show(`Data imported successfully from ${data.file}`, 'success');
+        } catch (error) {
+          console.error('Import failed:', error);
+          this.toastManager.show('Import failed. Please check the file format.', 'error');
+        }
+      }
+    });
+    
+    this.eventManager.on('clear-data', () => {
+      if (this.modalManager) {
+        this.modalManager.show('confirm', {
+          title: 'Clear All Data',
+          message: 'Are you sure you want to clear all data? This action cannot be undone and will remove all tasks and reset settings.',
+          confirmAction: 'confirm-clear-data',
+          confirmText: 'Clear All Data',
+          confirmClass: 'btn--danger'
+        });
+      }
+    });
+    
+    this.eventManager.on('confirm-clear-data', () => {
+      if (this.state && this.modalManager && this.toastManager) {
+        // Clear all data
+        localStorage.clear();
+        
+        // Reinitialize state
+        this.state = new AppState();
+        this.state.storage = storage;
+        
+        // Update UI
+        this.ui.state = this.state;
+        this.ui.render();
+        this.modalManager.hide();
+        this.toastManager.show('All data cleared successfully', 'success');
+      }
+    });
+    
+    // Register modal actions
+    this.eventManager.on('close-modal', () => {
+      if (this.modalManager) {
+        this.modalManager.hide();
+      }
+    });
+    
+    this.eventManager.on('show-error', ({ data }) => {
+      if (this.toastManager) {
+        this.toastManager.show(data.message, 'error');
+      }
+    });
+    
+    this.eventManager.on('show-success', ({ data }) => {
+      if (this.toastManager) {
+        this.toastManager.show(data.message, 'success');
+      }
+    });
+    
+    // Register task form submission handler
+    this.eventManager.on('submit-task-form', ({ data }) => {
+      if (this.state && this.toastManager) {
+        try {
+          if (data.data.mode === 'edit') {
+            // Update existing task
+            this.state.updateTask(data.data.id, {
+              title: data.data.title,
+              dueDate: data.data.dueDate,
+              duration: parseInt(data.data.duration),
+              tag: data.data.tag || 'General'
+            });
+            this.toastManager.show('Task updated successfully', 'success');
+          } else {
+            // Add new task
+            const newTask = {
+              title: data.data.title,
+              dueDate: data.data.dueDate,
+              duration: parseInt(data.data.duration),
+              tag: data.data.tag || 'General',
+              status: 'Pending'
+            };
+            this.state.addTask(newTask);
+            this.toastManager.show('Task added successfully', 'success');
+          }
+        } catch (error) {
+          console.error('Task form submission failed:', error);
+          this.toastManager.show('Failed to save task. Please try again.', 'error');
         }
       }
     });
