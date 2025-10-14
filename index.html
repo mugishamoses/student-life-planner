@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Campus Life Planner - A personal academic task management system to help students stay organized and productive.">
+  <meta name="author" content="Campus Life Planner">
+  <meta name="keywords" content="task management, academic planner, student productivity, campus life">
+  
+  <!-- Security headers -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="X-Frame-Options" content="DENY">
+  
+  <title>Campus Life Planner - Academic Task Management</title>
+  
+  <!-- Favicon (placeholder) -->
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+  
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="styles/components.css">
+  <link rel="stylesheet" href="styles/layout.css">
+  <link rel="stylesheet" href="styles/responsive.css">
+  
+  <!-- Preload critical resources -->
+  <link rel="preload" href="scripts/main.js" as="script">
+</head>
+<body>
+  <!-- Skip link for keyboard users -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  
+  <!-- Header with navigation -->
+  <header role="banner" class="header">
+    <div class="container">
+      <nav role="navigation" aria-label="Main navigation" class="nav">
+        <div class="nav__brand">
+          <h1 class="nav__title">
+            <a href="#" class="nav__link" aria-label="Campus Life Planner - Home">
+              Campus Life Planner
+            </a>
+          </h1>
+        </div>
+        
+        <!-- Mobile menu button -->
+        <button 
+          class="nav__toggle md:hidden" 
+          aria-label="Toggle navigation menu"
+          aria-expanded="false"
+          aria-controls="nav-menu"
+          data-action="toggle-mobile-menu"
+        >
+          <span class="nav__toggle-icon"></span>
+        </button>
+        
+        <!-- Navigation menu -->
+        <div id="nav-menu" class="nav__menu">
+          <ul class="nav__list" role="list">
+            <li class="nav__item">
+              <a href="#about" class="nav__link" aria-current="page">
+                About
+              </a>
+            </li>
+            <li class="nav__item">
+              <a href="#dashboard" class="nav__link">
+                Dashboard
+              </a>
+            </li>
+            <li class="nav__item">
+              <a href="#tasks" class="nav__link">
+                Tasks
+              </a>
+            </li>
+            <li class="nav__item">
+              <a href="#settings" class="nav__link">
+                Settings
+              </a>
+            </li>
+          </ul>
+        </div>
+      </nav>
+    </div>
+  </header>
+  
+  <!-- Main content area -->
+  <main id="main-content" role="main" class="main">
+    <!-- Content will be dynamically loaded here -->
+    <div class="container">
+      <div class="loading-container" aria-live="polite">
+        <div class="loading-spinner" aria-label="Loading application"></div>
+        <p>Loading Campus Life Planner...</p>
+      </div>
+    </div>
+  </main>
+  
+  <!-- Footer -->
+  <footer role="contentinfo" class="footer">
+    <div class="container">
+      <div class="footer__content">
+        <div class="footer__section">
+          <h2 class="footer__title">Campus Life Planner</h2>
+          <p class="footer__description">
+            A personal academic task management system designed to help students 
+            stay organized and achieve their academic goals.
+          </p>
+        </div>
+        
+        <div class="footer__section">
+          <h3 class="footer__subtitle">Features</h3>
+          <ul class="footer__list">
+            <li>Task Management</li>
+            <li>Progress Tracking</li>
+            <li>Advanced Search</li>
+            <li>Data Export/Import</li>
+          </ul>
+        </div>
+        
+        <div class="footer__section">
+          <h3 class="footer__subtitle">Accessibility</h3>
+          <ul class="footer__list">
+            <li>Keyboard Navigation</li>
+            <li>Screen Reader Support</li>
+            <li>High Contrast Mode</li>
+            <li>WCAG AA Compliant</li>
+          </ul>
+        </div>
+      </div>
+      
+      <div class="footer__bottom">
+        <p class="footer__copyright">
+          &copy; 2025 Campus Life Planner. Built with vanilla HTML, CSS, and JavaScript.
+        </p>
+      </div>
+    </div>
+  </footer>
+  
+  <!-- ARIA live regions for dynamic announcements -->
+  <div id="status-messages" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+  <div id="error-messages" aria-live="assertive" aria-atomic="true" class="sr-only"></div>
+  
+  <!-- Mobile menu overlay -->
+  <div class="mobile-menu-overlay" data-action="close-mobile-menu"></div>
+  
+  <!-- JavaScript -->
+  <script type="module" src="scripts/main.js"></script>
+  
+  <!-- Fallback for browsers without ES module support -->
+  <script nomodule>
+    document.body.innerHTML = '<div class="container"><div class="card"><div class="card__body"><h1>Browser Not Supported</h1><p>This application requires a modern browser with ES module support. Please upgrade your browser to use Campus Life Planner.</p></div></div></div>';
+  </script>
+</body>
+</html>
