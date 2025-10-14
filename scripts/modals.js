@@ -766,7 +766,7 @@ export class ModalManager {
 
     // Trigger form submission event
     if (this.eventManager) {
-      this.eventManager.triggerAction('submit-task-form', { data, form });
+      this.eventManager.emit('submit-task-form', { data, form });
     }
 
     // Close modal

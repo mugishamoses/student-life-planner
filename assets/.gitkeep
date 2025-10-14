@@ -1,8 +1,0 @@
-# Assets Directory
-
-This directory will contain:
-- Icons and images
-- Fonts (if any custom fonts are used)
-- Other static assets
-
-The .gitkeep file ensures this directory is tracked by Git even when empty.

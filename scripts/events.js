@@ -266,6 +266,16 @@ export class EventManager {
   }
 
   /**
+   * Emit an event (alias for triggerAction for compatibility)
+   * @param {string} action - The action name
+   * @param {Object} data - Optional data to pass to handlers
+   * @param {Element} element - Optional element that triggered the action
+   */
+  emit(action, data = {}, element = null) {
+    return this.triggerAction(action, data, element);
+  }
+
+  /**
    * Handle click events
    * @private
    */
