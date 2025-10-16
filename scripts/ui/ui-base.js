@@ -138,6 +138,10 @@ export class BaseComponent {
     const container = document.getElementById(containerId);
     if (container) {
       container.innerHTML = this.render();
+      // Re-setup event listeners after updating DOM
+      if (this.setupEventListeners) {
+        this.setupEventListeners();
+      }
     }
   }
 

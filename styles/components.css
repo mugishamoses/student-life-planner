@@ -2233,3 +2233,196 @@ Import Options Styles */
   margin: 0;
   flex-shrink: 0;
 }
+/* 
+Task Card View Styles */
+.task-cards-container {
+  width: 100%;
+}
+
+.task-cards-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-sm);
+  background-color: var(--color-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.select-all-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.task-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.task-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  transition: all var(--transition-base);
+  position: relative;
+  overflow: hidden;
+}
+
+.task-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--color-primary-light);
+}
+
+.task-card--completed {
+  opacity: 0.8;
+  background-color: var(--color-success-light);
+  border-color: var(--color-success);
+}
+
+.task-card--overdue {
+  border-left: 4px solid var(--color-error);
+  background-color: var(--color-error-light);
+}
+
+.task-card--due-today {
+  border-left: 4px solid var(--color-warning);
+  background-color: var(--color-warning-light);
+}
+
+.task-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+.task-card__body {
+  margin-bottom: var(--spacing-md);
+}
+
+.task-card__title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  margin: 0 0 var(--spacing-sm) 0;
+  cursor: pointer;
+  transition: color var(--transition-base);
+  line-height: 1.4;
+}
+
+.task-card__title:hover {
+  color: var(--color-primary);
+}
+
+.task-card--completed .task-card__title {
+  text-decoration: line-through;
+  color: var(--color-text-secondary);
+}
+
+.task-card__meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.task-card__due-date,
+.task-card__duration,
+.task-card__category {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+}
+
+.task-card__label {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  min-width: 70px;
+}
+
+.task-card__overdue-badge,
+.task-card__due-today-badge {
+  font-size: var(--font-size-xs);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-weight: var(--font-weight-medium);
+  margin-left: var(--spacing-xs);
+}
+
+.task-card__overdue-badge {
+  background-color: var(--color-error);
+  color: white;
+}
+
+.task-card__due-today-badge {
+  background-color: var(--color-warning);
+  color: var(--color-text);
+}
+
+.task-card__actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  justify-content: flex-end;
+}
+
+.task-card .status-toggle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-md);
+  border: 2px solid var(--color-border);
+  background-color: transparent;
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.task-card .status-toggle--complete {
+  background-color: var(--color-success);
+  border-color: var(--color-success);
+  color: white;
+}
+
+.task-card .status-toggle--pending {
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-secondary);
+}
+
+.task-card .status-toggle--pending:hover {
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+/* Responsive adjustments for cards */
+@media (max-width: 768px) {
+  .task-cards-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .task-card {
+    padding: var(--spacing-sm);
+  }
+  
+  .task-card__meta {
+    gap: var(--spacing-xs);
+  }
+  
+  .task-card__due-date,
+  .task-card__duration,
+  .task-card__category {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+  
+  .task-card__label {
+    min-width: auto;
+    font-size: var(--font-size-xs);
+  }
+}

@@ -269,6 +269,11 @@ export class TasksPage extends BasePage {
   }
 
   updateComponents() {
-    this.taskList.update('task-list');
+    // Re-render the entire page content to update view mode buttons and task list
+    const mainContent = document.getElementById('main-content');
+    if (mainContent) {
+      mainContent.innerHTML = this.render();
+      this.setupEventListeners();
+    }
   }
 }

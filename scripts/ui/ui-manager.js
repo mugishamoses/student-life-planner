@@ -83,6 +83,20 @@ export class UIManager {
             this.showToast(changes.uiState.toastMessage);
           }
         }
+        // Handle view mode, search, filter, and sort changes
+        if (this.currentPage === 'tasks' && this.currentPageRenderer) {
+          const needsUpdate = 
+            changes.uiState.viewMode !== changes.previousUIState.viewMode ||
+            changes.uiState.searchQuery !== changes.previousUIState.searchQuery ||
+            changes.uiState.searchMode !== changes.previousUIState.searchMode ||
+            changes.uiState.filterBy !== changes.previousUIState.filterBy ||
+            changes.uiState.sortBy !== changes.previousUIState.sortBy ||
+            JSON.stringify(changes.uiState.selectedTasks) !== JSON.stringify(changes.previousUIState.selectedTasks);
+          
+          if (needsUpdate) {
+            this.currentPageRenderer.updateComponents();
+          }
+        }
         break;
       
       case 'TASK_ADDED':
