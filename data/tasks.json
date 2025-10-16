@@ -1,0 +1,110 @@
+{
+  "version": "1.0",
+  "lastUpdated": "2024-12-10T10:00:00.000Z",
+  "application": "Campus Life Planner",
+  "data": {
+    "tasks": [
+      {
+        "id": "task_1733832000000_demo001",
+        "title": "Complete JavaScript Assignment",
+        "dueDate": "2024-12-15",
+        "duration": 180,
+        "tag": "Programming",
+        "status": "Pending",
+        "createdAt": "2024-12-10T10:00:00.000Z",
+        "updatedAt": "2024-12-10T10:00:00.000Z"
+      },
+      {
+        "id": "task_1733832060000_demo002",
+        "title": "Study for Database Systems Exam",
+        "dueDate": "2024-12-18",
+        "duration": 240,
+        "tag": "Study",
+        "status": "Pending",
+        "createdAt": "2024-12-10T10:01:00.000Z",
+        "updatedAt": "2024-12-10T10:01:00.000Z"
+      },
+      {
+        "id": "task_1733832120000_demo003",
+        "title": "Research Paper on Machine Learning",
+        "dueDate": "2024-12-20",
+        "duration": 300,
+        "tag": "Research",
+        "status": "Pending",
+        "createdAt": "2024-12-10T10:02:00.000Z",
+        "updatedAt": "2024-12-10T10:02:00.000Z"
+      },
+      {
+        "id": "task_1733832180000_demo004",
+        "title": "Prepare Presentation for Software Engineering",
+        "dueDate": "2024-12-12",
+        "duration": 120,
+        "tag": "Presentation",
+        "status": "Complete",
+        "createdAt": "2024-12-10T10:03:00.000Z",
+        "updatedAt": "2024-12-10T10:03:00.000Z"
+      },
+      {
+        "id": "task_1733832240000_demo005",
+        "title": "Lab Report - Chemistry Experiment",
+        "dueDate": "2024-12-14",
+        "duration": 90,
+        "tag": "Lab",
+        "status": "Pending",
+        "createdAt": "2024-12-10T10:04:00.000Z",
+        "updatedAt": "2024-12-10T10:04:00.000Z"
+      },
+      {
+        "id": "task_1733832300000_demo006",
+        "title": "Read Chapter 5-7 for History Class",
+        "dueDate": "2024-12-16",
+        "duration": 150,
+        "tag": "Reading",
+        "status": "Pending",
+        "createdAt": "2024-12-10T10:05:00.000Z",
+        "updatedAt": "2024-12-10T10:05:00.000Z"
+      },
+      {
+        "id": "task_1733832360000_demo007",
+        "title": "Group Project Meeting - Marketing Strategy",
+        "dueDate": "2024-12-13",
+        "duration": 60,
+        "tag": "Meeting",
+        "status": "Complete",
+        "createdAt": "2024-12-10T10:06:00.000Z",
+        "updatedAt": "2024-12-10T10:06:00.000Z"
+      },
+      {
+        "id": "task_1733832420000_demo008",
+        "title": "Practice Problems - Calculus Integration",
+        "dueDate": "2024-12-17",
+        "duration": 120,
+        "tag": "Math",
+        "status": "Pending",
+        "createdAt": "2024-12-10T10:07:00.000Z",
+        "updatedAt": "2024-12-10T10:07:00.000Z"
+      }
+    ],
+    "settings": {
+      "timeUnit": "both",
+      "weeklyHourTarget": 40,
+      "theme": "light",
+      "defaultTag": "General",
+      "sortPreference": "date-newest",
+      "searchCaseSensitive": false
+    },
+    "ui": {
+      "sortBy": "date-newest",
+      "filterBy": "all",
+      "searchMode": "text",
+      "viewMode": "table"
+    },
+    "metadata": {
+      "totalTasks": 8,
+      "settingsCount": 6,
+      "exportedBy": "Campus Life Planner Initial Data",
+      "format": "JSON",
+      "dataVersion": "1.0"
+    }
+  }
+}

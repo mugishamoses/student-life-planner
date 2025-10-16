@@ -46,6 +46,9 @@ class App {
       this.state = new AppState();
       this.state.storage = storage; // Attach storage module
       
+      // Wait for state to be fully initialized
+      await this.waitForStateInitialization();
+      
       // Initialize router
       this.router = createDefaultRouter();
       
@@ -255,6 +258,60 @@ class App {
         }
       }
     });
+
+    // Register manual backup action
+    this.eventManager.on('create-backup', async () => {
+      if (this.state && this.toastManager) {
+        try {
+          const result = await this.state.createManualBackup();
+          if (result.success) {
+            this.toastManager.show(result.message, 'success');
+          } else {
+            this.toastManager.show(result.message, 'error');
+          }
+        } catch (error) {
+          console.error('Manual backup failed:', error);
+          this.toastManager.show('Backup failed. Please try again.', 'error');
+        }
+      }
+    });
+
+    // Register file import action
+    this.eventManager.on('import-from-file', async ({ data }) => {
+      if (this.state && this.toastManager && data.file) {
+        try {
+          const result = await this.state.importFromFile(data.file);
+          if (result.success) {
+            this.toastManager.show(result.message, 'success');
+            // Refresh UI
+            if (this.ui) {
+              this.ui.render();
+            }
+          } else {
+            this.toastManager.show(result.message, 'error');
+          }
+        } catch (error) {
+          console.error('File import failed:', error);
+          this.toastManager.show('Import failed. Please try again.', 'error');
+        }
+      }
+    });
+
+    // Register auto-backup toggle
+    this.eventManager.on('toggle-auto-backup', ({ data }) => {
+      if (this.state && this.toastManager) {
+        try {
+          this.state.setAutoBackup(data.enabled);
+          const message = data.enabled ? 
+            'Auto-backup enabled. Backups will be downloaded automatically.' : 
+            'Auto-backup disabled.';
+          this.toastManager.show(message, 'success');
+        } catch (error) {
+          console.error('Auto-backup toggle failed:', error);
+          this.toastManager.show('Failed to update auto-backup setting.', 'error');
+        }
+      }
+    });
     
     this.eventManager.on('export-settings', () => {
       if (this.state && this.toastManager) {
@@ -435,6 +492,31 @@ class App {
     this.closeMobileMenu();
     
     console.log(`Navigated to ${page} page`, routeInfo);
+  }
+
+  /**
+   * Wait for state initialization to complete
+   */
+  async waitForStateInitialization() {
+    return new Promise((resolve) => {
+      if (this.state.isReady()) {
+        resolve();
+        return;
+      }
+
+      const unsubscribe = this.state.subscribe((changes) => {
+        if (changes.type === 'STATE_INITIALIZED') {
+          unsubscribe();
+          resolve();
+        }
+      });
+
+      // Fallback timeout
+      setTimeout(() => {
+        unsubscribe();
+        resolve();
+      }, 5000);
+    });
   }
 
   /**

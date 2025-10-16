@@ -98,7 +98,26 @@ export class SettingsPage extends BasePage {
                 </div>
               </div>
               
+              <div class="backup-settings mt-4">
+                <h3 class="backup-title">Backup Settings</h3>
+                <div class="form-group">
+                  <label class="form-label">
+                    <input 
+                      type="checkbox" 
+                      name="autoBackup"
+                      ${this.state.getAutoBackupStatus() ? 'checked' : ''}
+                      data-action="toggle-auto-backup"
+                    >
+                    Enable automatic backup downloads
+                  </label>
+                  <div class="form-help">Automatically download backup files when data changes</div>
+                </div>
+              </div>
+              
               <div class="button-group mt-4">
+                <button class="btn btn--primary" data-action="create-backup">
+                  💾 Create Backup
+                </button>
                 <button class="btn btn--secondary" data-action="export-data">
                   📤 Export All Data
                 </button>
@@ -190,7 +209,7 @@ export class SettingsPage extends BasePage {
                 </div>
                 <div class="info-item">
                   <span class="info-label">Storage:</span>
-                  <span class="info-value">Local Browser Storage</span>
+                  <span class="info-value">Local Browser Storage + JSON File Backup</span>
                 </div>
               </div>
               
@@ -267,23 +286,33 @@ export class SettingsPage extends BasePage {
       });
     });
     
+    // Create backup button
+    document.querySelectorAll('[data-action="create-backup"]').forEach(button => {
+      button.addEventListener('click', () => {
+        if (this.eventManager) {
+          this.eventManager.emit('create-backup');
+        }
+      });
+    });
+
+    // Auto-backup toggle
+    document.querySelectorAll('[data-action="toggle-auto-backup"]').forEach(checkbox => {
+      checkbox.addEventListener('change', () => {
+        if (this.eventManager) {
+          this.eventManager.emit('toggle-auto-backup', { enabled: checkbox.checked });
+        }
+      });
+    });
+
     // Import file input
     document.querySelectorAll('[data-action="import-file"]').forEach(input => {
       input.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file && this.eventManager) {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            try {
-              const data = JSON.parse(event.target.result);
-              this.eventManager.emit('import-data', { data, file: file.name });
-            } catch (error) {
-              console.error('Import error:', error);
-              this.eventManager.emit('show-error', { message: 'Invalid file format' });
-            }
-          };
-          reader.readAsText(file);
+          this.eventManager.emit('import-from-file', { file });
         }
+        // Reset input
+        e.target.value = '';
       });
     });
     

@@ -172,13 +172,22 @@ export class ModalManager {
       this.modalContainer.className = 'modal-container';
       this.modalContainer.setAttribute('aria-hidden', 'true');
       document.body.appendChild(this.modalContainer);
+      
+      // Create backdrop only once
+      this.backdrop = document.createElement('div');
+      this.backdrop.className = 'modal-backdrop';
+      this.backdrop.setAttribute('aria-hidden', 'true');
+      this.modalContainer.appendChild(this.backdrop);
+    } else {
+      // Get existing backdrop
+      this.backdrop = this.modalContainer.querySelector('.modal-backdrop');
+      if (!this.backdrop) {
+        this.backdrop = document.createElement('div');
+        this.backdrop.className = 'modal-backdrop';
+        this.backdrop.setAttribute('aria-hidden', 'true');
+        this.modalContainer.appendChild(this.backdrop);
+      }
     }
-
-    // Create backdrop
-    this.backdrop = document.createElement('div');
-    this.backdrop.className = 'modal-backdrop';
-    this.backdrop.setAttribute('aria-hidden', 'true');
-    this.modalContainer.appendChild(this.backdrop);
   }
 
   /**
@@ -200,6 +209,13 @@ export class ModalManager {
         this.hide();
       }
     });
+
+    // Handle modal container clicks (for backdrop)
+    this.modalContainer.addEventListener('click', (event) => {
+      if (event.target === this.modalContainer) {
+        this.hide();
+      }
+    });
   }
 
   /**
@@ -208,6 +224,8 @@ export class ModalManager {
    * @param {Object} options - Modal options
    */
   show(type, options = {}) {
+    console.log(`Showing modal of type: ${type}`, options);
+    
     // Hide current modal if exists
     if (this.currentModal) {
       this.hide(false);
@@ -232,8 +250,13 @@ export class ModalManager {
     }
 
     if (!modalElement) {
+      console.error('Failed to create modal element');
       return;
     }
+
+    console.log('Modal element created:', modalElement);
+    console.log('Modal innerHTML length:', modalElement.innerHTML.length);
+    console.log('Modal first 200 chars:', modalElement.innerHTML.substring(0, 200));
 
     // Add to stack and set as current
     this.modalStack.push({
@@ -244,8 +267,15 @@ export class ModalManager {
     
     this.currentModal = modalElement;
 
-    // Add to DOM
+    // Clear any existing modals first
+    const existingModals = this.modalContainer.querySelectorAll('.modal');
+    existingModals.forEach(modal => modal.remove());
+
+    // Add modal AFTER backdrop to ensure proper z-index
     this.modalContainer.appendChild(modalElement);
+    console.log('Modal added to container');
+    console.log('Modal container children:', this.modalContainer.children.length);
+    console.log('Modal container HTML:', this.modalContainer.innerHTML.substring(0, 200));
 
     // Show modal with animation
     this.showModal(modalElement);
@@ -256,6 +286,8 @@ export class ModalManager {
 
     // Announce to screen readers
     this.announceModal(type, options);
+    
+    console.log('Modal should now be visible');
   }
 
   /**
@@ -300,6 +332,42 @@ export class ModalManager {
    * @private
    */
   showModal(modalElement) {
+    console.log('showModal called with element:', modalElement);
+    
+    // Force immediate visibility with inline styles
+    this.modalContainer.style.cssText = `
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      z-index: 1000 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 1rem !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      background-color: rgba(0, 0, 0, 0.5) !important;
+    `;
+    
+    // Set modal element styles
+    modalElement.style.cssText = `
+      position: relative !important;
+      background: white !important;
+      border-radius: 8px !important;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1) !important;
+      max-width: 500px !important;
+      width: 100% !important;
+      max-height: 90vh !important;
+      overflow: hidden !important;
+      z-index: 1002 !important;
+      display: block !important;
+      opacity: 1 !important;
+      transform: scale(1) translateY(0) !important;
+      visibility: visible !important;
+    `;
+    
     // Show container
     this.modalContainer.setAttribute('aria-hidden', 'false');
     this.modalContainer.classList.add('modal-container--open');
@@ -307,14 +375,12 @@ export class ModalManager {
     // Prevent body scroll
     document.body.classList.add('modal-open');
 
-    // Animate modal
-    modalElement.classList.add('modal--opening');
+    // Add classes for proper styling
+    modalElement.classList.add('modal--open');
     
-    // Remove opening class after animation
-    setTimeout(() => {
-      modalElement.classList.remove('modal--opening');
-      modalElement.classList.add('modal--open');
-    }, 300);
+    console.log('Modal should now be fully visible with inline styles');
+    console.log('Modal container computed style:', window.getComputedStyle(this.modalContainer).display);
+    console.log('Modal element computed style:', window.getComputedStyle(modalElement).display);
   }
 
   /**

@@ -3,6 +3,8 @@
  * Handles tasks, settings, and UI state with automatic persistence
  */
 
+import { getDataManager } from './data-manager.js';
+
 export class AppState {
   constructor() {
     this.state = {
@@ -29,7 +31,11 @@ export class AppState {
     };
     
     this.observers = [];
-    this.loadFromStorage();
+    this.dataManager = getDataManager();
+    this.isInitialized = false;
+    
+    // Initialize asynchronously
+    this.initializeAsync();
   }
 
   /**
@@ -190,6 +196,51 @@ export class AppState {
     return `task_${timestamp}_${random}`;
   }
 
+  /**
+   * Initialize state asynchronously with JSON file fallback
+   */
+  async initializeAsync() {
+    try {
+      // First, try to load from localStorage
+      this.loadFromStorage();
+      
+      // If no localStorage data, try to load from JSON file
+      const initialData = await this.dataManager.initialize(this.state);
+      
+      if (initialData) {
+        // Merge JSON file data with current state
+        this.state = {
+          tasks: initialData.tasks || [],
+          settings: {
+            ...this.state.settings,
+            ...initialData.settings
+          },
+          ui: {
+            ...this.state.ui,
+            ...initialData.ui,
+            // Reset transient UI state
+            modalOpen: null,
+            toastMessage: null,
+            selectedTasks: []
+          }
+        };
+        
+        // Save to localStorage for future use
+        this.saveToStorage();
+        
+        console.log('AppState: Initialized with JSON file data');
+      }
+      
+      this.isInitialized = true;
+      this.notify({ type: 'STATE_INITIALIZED', state: this.state });
+      
+    } catch (error) {
+      console.error('Error during async initialization:', error);
+      this.isInitialized = true;
+      this.notify({ type: 'STATE_INITIALIZED', state: this.state });
+    }
+  }
+
   loadFromStorage() {
     try {
       const savedState = localStorage.getItem('campusLifePlannerState');
@@ -236,6 +287,11 @@ export class AppState {
       };
       
       localStorage.setItem('campusLifePlannerState', JSON.stringify(stateToSave));
+      
+      // Also create JSON file backup (throttled)
+      if (this.dataManager && this.dataManager.isReady()) {
+        this.dataManager.saveToJsonFile(stateToSave);
+      }
     } catch (error) {
       console.error('Error saving state to storage:', error);
       // Could implement fallback to sessionStorage here
@@ -282,5 +338,99 @@ export class AppState {
     
     this.saveToStorage();
     this.notify({ type: 'STATE_RESET' });
+  }
+
+  /**
+   * Check if state is fully initialized
+   */
+  isReady() {
+    return this.isInitialized;
+  }
+
+  /**
+   * Manually trigger a backup download
+   */
+  async createManualBackup() {
+    if (!this.dataManager) {
+      throw new Error('DataManager not available');
+    }
+
+    const stateToBackup = {
+      tasks: this.state.tasks,
+      settings: this.state.settings,
+      ui: {
+        sortBy: this.state.ui.sortBy,
+        filterBy: this.state.ui.filterBy,
+        searchMode: this.state.ui.searchMode,
+        viewMode: this.state.ui.viewMode
+      }
+    };
+
+    return await this.dataManager.manualBackup(stateToBackup);
+  }
+
+  /**
+   * Import data from uploaded file
+   */
+  async importFromFile(file) {
+    if (!this.dataManager) {
+      throw new Error('DataManager not available');
+    }
+
+    const result = await this.dataManager.importFromFile(file);
+    
+    if (result.success && result.data) {
+      // Merge imported data with current state
+      const importedData = result.data;
+      
+      // Import tasks (replace existing)
+      if (importedData.tasks && Array.isArray(importedData.tasks)) {
+        this.state.tasks = importedData.tasks;
+      }
+      
+      // Import settings (merge with existing)
+      if (importedData.settings && typeof importedData.settings === 'object') {
+        this.state.settings = {
+          ...this.state.settings,
+          ...importedData.settings
+        };
+      }
+      
+      // Import UI preferences (merge with existing)
+      if (importedData.ui && typeof importedData.ui === 'object') {
+        this.state.ui = {
+          ...this.state.ui,
+          ...importedData.ui,
+          // Reset transient UI state
+          modalOpen: null,
+          toastMessage: null,
+          selectedTasks: []
+        };
+      }
+      
+      // Save to localStorage
+      this.saveToStorage();
+      
+      // Notify observers
+      this.notify({ type: 'DATA_IMPORTED', importedData });
+    }
+    
+    return result;
+  }
+
+  /**
+   * Enable/disable automatic backup downloads
+   */
+  setAutoBackup(enabled) {
+    if (this.dataManager) {
+      this.dataManager.setAutoDownload(enabled);
+    }
+  }
+
+  /**
+   * Get auto backup status
+   */
+  getAutoBackupStatus() {
+    return localStorage.getItem('campusLifePlannerAutoBackup') === 'true';
   }
 }
