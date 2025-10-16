@@ -2,6 +2,8 @@
 
 A vanilla JavaScript task management application designed for students to organize their academic workload and stay productive.
 
+[Watch Demo Video](https://www.youtube.com/watch?v=g2UaDD-GlUo)
+
 ## Features
 
 - **Task Management**: Create, edit, delete, and track academic tasks with due dates and time estimates
