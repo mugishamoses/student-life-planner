@@ -438,7 +438,7 @@ export class ModalManager {
             ${isEdit ? 'Update the task details below.' : 'Fill in the details for your new task.'}
           </p>
           
-          <form class="task-form" data-form="task-form" novalidate>
+          <form id="task-form" class="task-form" data-form="task-form" novalidate>
             <div class="form-group">
               <label for="task-title" class="form-label">
                 Task Title <span class="required" aria-label="required">*</span>
@@ -449,6 +449,7 @@ export class ModalManager {
                 name="title"
                 class="form-input" 
                 required
+                autocomplete="off"
                 aria-describedby="title-help title-error"
                 value="${isEdit ? this.escapeHtml(task.title) : ''}"
               >
@@ -538,6 +539,7 @@ export class ModalManager {
             type="submit" 
             form="task-form"
             class="btn btn--primary"
+            data-action="submit-task"
           >
             ${isEdit ? 'Update Task' : 'Add Task'}
           </button>
@@ -667,6 +669,7 @@ export class ModalManager {
     const form = modal.querySelector('.task-form');
     
     if (!form) {
+      console.error('Task form not found in modal');
       return;
     }
 
@@ -686,7 +689,43 @@ export class ModalManager {
     // Handle form submission
     form.addEventListener('submit', (event) => {
       event.preventDefault();
-      this.handleTaskFormSubmit(form);
+      
+      // Clear any existing error messages
+      const errorMessages = form.querySelectorAll('.form-error');
+      errorMessages.forEach(error => {
+        if (error.textContent) {
+          error.textContent = '';
+        }
+      });
+      
+      // Validate form
+      let isValid = true;
+      inputs.forEach(input => {
+        if (!input.value.trim()) {
+          this.showFieldError(input, `${this.getFieldLabel(input)} is required`);
+          isValid = false;
+        }
+      });
+      
+      if (!isValid) {
+        return false;
+      }
+      
+      console.log('Form is valid, submitting...');
+      
+      // Get form data
+      const formData = new FormData(form);
+      const data = Object.fromEntries(formData.entries());
+      
+      // Submit form
+      if (this.eventManager) {
+        this.eventManager.emit('submit-task-form', { data });
+        this.hide();
+      } else {
+        console.error('Event manager not available');
+      }
+      
+      return false;
     });
   }
 
@@ -808,6 +847,9 @@ export class ModalManager {
    * @private
    */
   handleTaskFormSubmit(form) {
+    // Prevent default form submission
+    event.preventDefault();
+    
     const formData = new FormData(form);
     const data = Object.fromEntries(formData.entries());
     
@@ -830,13 +872,25 @@ export class ModalManager {
       return;
     }
 
-    // Trigger form submission event
-    if (this.eventManager) {
-      this.eventManager.emit('submit-task-form', { data, form });
+    // Convert duration to number
+    if (data.duration) {
+      data.duration = parseInt(data.duration, 10);
     }
 
-    // Close modal
-    this.hide();
+    // Trigger form submission event
+    if (this.eventManager) {
+      try {
+        this.eventManager.emit('submit-task-form', { data });
+        // Close modal only after successful submission
+        this.hide();
+      } catch (error) {
+        console.error('Error submitting task:', error);
+        const errorMsg = document.createElement('div');
+        errorMsg.className = 'form-error';
+        errorMsg.textContent = 'Failed to save task. Please try again.';
+        form.insertBefore(errorMsg, form.firstChild);
+      }
+    }
   }
 
   /**

@@ -77,20 +77,30 @@ export class AppState {
 
   addTask(taskData) {
     const now = new Date().toISOString();
+    // Create base task with required fields
     const task = {
       id: this.generateTaskId(),
-      title: taskData.title,
-      dueDate: taskData.dueDate,
-      duration: taskData.duration,
-      tag: taskData.tag || this.state.settings.defaultTag,
-      status: 'Pending',
       createdAt: now,
       updatedAt: now,
-      ...taskData
+      status: 'Pending',
+      // Handle potential undefined or null values
+      title: taskData.title || '',
+      dueDate: taskData.dueDate || '',
+      duration: parseInt(taskData.duration) || 0,
+      tag: taskData.tag || this.state.settings.defaultTag
     };
 
+    // Validate task before adding
+    if (!task.title || !task.dueDate) {
+      throw new Error('Task title and due date are required');
+    }
+
     this.state.tasks.push(task);
+    
+    // Ensure storage is updated
     this.saveToStorage();
+    
+    // Notify subscribers of change
     this.notify({ type: 'TASK_ADDED', task });
     
     return task;
@@ -201,34 +211,49 @@ export class AppState {
    */
   async initializeAsync() {
     try {
+      // Clear any stale data first
+      this.state.tasks = [];
+      
       // First, try to load from localStorage
-      this.loadFromStorage();
+      await this.loadFromStorage();
       
-      // If no localStorage data, try to load from JSON file
-      const initialData = await this.dataManager.initialize(this.state);
+      // If no tasks in localStorage, try to load from JSON file
+      if (!this.state.tasks.length) {
+        const initialData = await this.dataManager.initialize(this.state);
+        
+        if (initialData) {
+          // Merge JSON file data with current state
+          this.state = {
+            tasks: Array.isArray(initialData.tasks) ? initialData.tasks : [],
+            settings: {
+              ...this.state.settings,
+              ...initialData.settings
+            },
+            ui: {
+              ...this.state.ui,
+              ...initialData.ui,
+              // Reset transient UI state
+              modalOpen: null,
+              toastMessage: null,
+              selectedTasks: []
+            }
+          };
+          
+          // Validate tasks array
+          this.state.tasks = this.state.tasks.filter(task => 
+            task && task.title && task.dueDate && task.id
+          );
+          
+          // Save validated state to localStorage
+          await this.saveToStorage();
+          
+          console.log('AppState: Initialized with JSON file data');
+        }
+      }
       
-      if (initialData) {
-        // Merge JSON file data with current state
-        this.state = {
-          tasks: initialData.tasks || [],
-          settings: {
-            ...this.state.settings,
-            ...initialData.settings
-          },
-          ui: {
-            ...this.state.ui,
-            ...initialData.ui,
-            // Reset transient UI state
-            modalOpen: null,
-            toastMessage: null,
-            selectedTasks: []
-          }
-        };
-        
-        // Save to localStorage for future use
-        this.saveToStorage();
-        
-        console.log('AppState: Initialized with JSON file data');
+      // Ensure tasks is always an array
+      if (!Array.isArray(this.state.tasks)) {
+        this.state.tasks = [];
       }
       
       this.isInitialized = true;
@@ -236,6 +261,8 @@ export class AppState {
       
     } catch (error) {
       console.error('Error during async initialization:', error);
+      // Ensure we have a valid state even after error
+      this.state.tasks = this.state.tasks || [];
       this.isInitialized = true;
       this.notify({ type: 'STATE_INITIALIZED', state: this.state });
     }
@@ -286,15 +313,38 @@ export class AppState {
         }
       };
       
-      localStorage.setItem('campusLifePlannerState', JSON.stringify(stateToSave));
+      // Ensure data is valid before saving
+      if (!Array.isArray(stateToSave.tasks)) {
+        stateToSave.tasks = [];
+      }
+      
+      const serializedState = JSON.stringify(stateToSave);
+      localStorage.setItem('campusLifePlannerState', serializedState);
+      
+      // Verify the save was successful
+      const savedData = localStorage.getItem('campusLifePlannerState');
+      if (!savedData) {
+        throw new Error('Data was not saved successfully');
+      }
       
       // Also create JSON file backup (throttled)
       if (this.dataManager && this.dataManager.isReady()) {
         this.dataManager.saveToJsonFile(stateToSave);
       }
+
+      return true;
     } catch (error) {
       console.error('Error saving state to storage:', error);
-      // Could implement fallback to sessionStorage here
+      // Implement fallback to sessionStorage
+      try {
+        const serializedState = JSON.stringify(stateToSave);
+        sessionStorage.setItem('campusLifePlannerState', serializedState);
+        console.warn('Fallback: Saved to sessionStorage instead of localStorage');
+        return true;
+      } catch (fallbackError) {
+        console.error('Error saving to fallback storage:', fallbackError);
+        return false;
+      }
     }
   }
 

@@ -13,7 +13,7 @@ import { createEventManager } from './events.js';
 import { createModalManager, createToastManager } from './modals.js';
 
 // Application class to manage the entire app
-class App {
+export class App {
   constructor() {
     this.initialized = false;
     this.modules = {};
@@ -424,25 +424,36 @@ class App {
     this.eventManager.on('submit-task-form', ({ data }) => {
       if (this.state && this.toastManager) {
         try {
-          if (data.data.mode === 'edit') {
+          // Validate required fields
+          if (!data.title || !data.dueDate) {
+            throw new Error('Title and due date are required');
+          }
+
+          if (data.mode === 'edit') {
             // Update existing task
-            this.state.updateTask(data.data.id, {
-              title: data.data.title,
-              dueDate: data.data.dueDate,
-              duration: parseInt(data.data.duration),
-              tag: data.data.tag || 'General'
+            this.state.updateTask(data.id, {
+              title: data.title,
+              dueDate: data.dueDate,
+              duration: parseInt(data.duration) || 0,
+              tag: data.tag || 'General'
             });
             this.toastManager.show('Task updated successfully', 'success');
           } else {
             // Add new task
             const newTask = {
-              title: data.data.title,
-              dueDate: data.data.dueDate,
-              duration: parseInt(data.data.duration),
-              tag: data.data.tag || 'General',
+              title: data.title,
+              dueDate: data.dueDate,
+              duration: parseInt(data.duration) || 0,
+              tag: data.tag || 'General',
               status: 'Pending'
             };
-            this.state.addTask(newTask);
+            
+            // Log the task being added
+            console.log('Adding new task:', newTask);
+            
+            const addedTask = this.state.addTask(newTask);
+            console.log('Task added successfully:', addedTask);
+            
             this.toastManager.show('Task added successfully', 'success');
           }
         } catch (error) {
@@ -456,7 +467,7 @@ class App {
   /**
    * Set up route handlers
    */
-  setupRoutes() {
+  setupRoutes = () => {
     // Set up route handlers for each page
     this.router.addRoute('about', (routeInfo) => {
       this.handleRouteChange('about', routeInfo);
@@ -473,12 +484,12 @@ class App {
     this.router.addRoute('settings', (routeInfo) => {
       this.handleRouteChange('settings', routeInfo);
     });
-  }
+  };
 
   /**
    * Handle route changes
    */
-  handleRouteChange(page, routeInfo) {
+  handleRouteChange = (page, routeInfo) => {
     if (this.state) {
       this.state.updateUIState({ currentPage: page });
     }
@@ -492,12 +503,12 @@ class App {
     this.closeMobileMenu();
     
     console.log(`Navigated to ${page} page`, routeInfo);
-  }
+  };
 
   /**
    * Wait for state initialization to complete
    */
-  async waitForStateInitialization() {
+  waitForStateInitialization = async () => {
     return new Promise((resolve) => {
       if (this.state.isReady()) {
         resolve();
@@ -517,21 +528,21 @@ class App {
         resolve();
       }, 5000);
     });
-  }
+  };
 
   /**
    * Navigate to a specific page using the router
    */
-  navigateToPage(page) {
+  navigateToPage = (page) => {
     if (this.router) {
       this.router.navigate(page);
     }
-  }
+  };
 
   /**
    * Toggle mobile menu
    */
-  toggleMobileMenu() {
+  toggleMobileMenu = () => {
     const navMenu = document.querySelector('.nav__menu');
     const mobileToggle = document.querySelector('[data-action="toggle-mobile-menu"]');
     const overlay = document.querySelector('.mobile-menu-overlay');
@@ -561,7 +572,7 @@ class App {
   /**
    * Close mobile menu
    */
-  closeMobileMenu() {
+  closeMobileMenu = () => {
     const navMenu = document.querySelector('.nav__menu');
     const mobileToggle = document.querySelector('[data-action="toggle-mobile-menu"]');
     const overlay = document.querySelector('.mobile-menu-overlay');
@@ -577,12 +588,12 @@ class App {
       // Remove focus trap
       this.removeMobileMenuFocusTrap();
     }
-  }
+  };
 
   /**
    * Set up focus trap for mobile menu
    */
-  setupMobileMenuFocusTrap(menuElement) {
+  setupMobileMenuFocusTrap = (menuElement) => {
     const focusableElements = menuElement.querySelectorAll(
       'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
     );
@@ -693,26 +704,20 @@ class App {
   /**
    * Get application status
    */
-  getStatus() {
+  getStatus = () => {
     return {
       initialized: this.initialized,
       modules: Object.keys(this.modules),
       timestamp: new Date().toISOString()
     };
-  }
+  };
 }
-
-// Global app instance
-let app;
 
 // Initialize the application when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-  app = new App();
+  const app = new App();
   app.init();
+  
+  // Make app available globally for debugging
+  window.app = app;
 });
-
-// Make app available globally for debugging
-window.app = app;
-
-// Export for ES modules (if needed)
-export { App };
