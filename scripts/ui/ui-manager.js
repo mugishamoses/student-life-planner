@@ -102,18 +102,29 @@ export class UIManager {
       case 'TASK_ADDED':
       case 'TASK_UPDATED':
       case 'TASK_DELETED':
-        // Update task-related components if on tasks page
-        if (this.currentPage === 'tasks' && this.currentPageRenderer) {
-          this.currentPageRenderer.updateComponents();
-        }
-        // Update dashboard if visible and announce progress changes
-        if (this.currentPage === 'dashboard' && this.currentPageRenderer) {
-          this.currentPageRenderer.updateComponents();
-          // Announce progress updates for completed tasks
-          if (changes.type === 'TASK_UPDATED' && changes.task.status === 'Complete') {
-            this.announceProgressUpdate();
+        // Use requestAnimationFrame to prevent blocking the UI thread
+        requestAnimationFrame(() => {
+          // Update task-related components if on tasks page
+          if (this.currentPage === 'tasks' && this.currentPageRenderer) {
+            try {
+              this.currentPageRenderer.updateComponents();
+            } catch (error) {
+              console.error('Error updating task components:', error);
+            }
           }
-        }
+          // Update dashboard if visible and announce progress changes
+          if (this.currentPage === 'dashboard' && this.currentPageRenderer) {
+            try {
+              this.currentPageRenderer.updateComponents();
+              // Announce progress updates for completed tasks
+              if (changes.type === 'TASK_UPDATED' && changes.task.status === 'Complete') {
+                this.announceProgressUpdate();
+              }
+            } catch (error) {
+              console.error('Error updating dashboard components:', error);
+            }
+          }
+        });
         break;
       
       case 'SETTINGS_UPDATED':

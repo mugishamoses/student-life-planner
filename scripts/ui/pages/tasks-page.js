@@ -269,11 +269,87 @@ export class TasksPage extends BasePage {
   }
 
   updateComponents() {
-    // Re-render the entire page content to update view mode buttons and task list
-    const mainContent = document.getElementById('main-content');
-    if (mainContent) {
-      mainContent.innerHTML = this.render();
-      this.setupEventListeners();
+    try {
+      // Only update the task list, not the entire page
+      const taskListContainer = document.getElementById('task-list');
+      if (taskListContainer && this.taskList) {
+        const newContent = this.taskList.render();
+        if (newContent !== taskListContainer.innerHTML) {
+          taskListContainer.innerHTML = newContent;
+        }
+        
+        // Update task summary
+        const tasks = this.state.getTasks();
+        const summaryContainer = document.querySelector('.tasks-summary');
+        if (summaryContainer) {
+          if (tasks.length > 0) {
+            const newSummary = `
+              <span class="tasks-count">${tasks.length} task${tasks.length !== 1 ? 's' : ''}</span>
+              <span class="tasks-completed">${tasks.filter(t => t.status === 'Complete').length} completed</span>
+            `;
+            if (summaryContainer.innerHTML !== newSummary) {
+              summaryContainer.innerHTML = newSummary;
+            }
+          } else {
+            summaryContainer.innerHTML = '';
+          }
+        }
+        
+        // Re-setup only task-specific event listeners, not all page listeners
+        this.setupTaskEventListeners();
+      }
+    } catch (error) {
+      console.error('Error updating task components:', error);
+      // Fallback: just log the error and continue
     }
+  }
+
+  setupTaskEventListeners() {
+    // Task actions
+    document.querySelectorAll('[data-action="edit-task"]').forEach(button => {
+      button.addEventListener('click', (e) => {
+        const taskId = e.target.dataset.taskId;
+        if (taskId && this.eventManager) {
+          this.eventManager.emit('edit-task', { taskId });
+        }
+      });
+    });
+
+    document.querySelectorAll('[data-action="delete-task"]').forEach(button => {
+      button.addEventListener('click', (e) => {
+        const taskId = e.target.dataset.taskId;
+        if (taskId && this.eventManager) {
+          this.eventManager.emit('delete-task', { taskId });
+        }
+      });
+    });
+
+    document.querySelectorAll('[data-action="toggle-task-status"]').forEach(button => {
+      button.addEventListener('click', (e) => {
+        const taskId = e.target.dataset.taskId;
+        if (taskId && this.eventManager) {
+          this.eventManager.emit('toggle-task-status', { taskId });
+        }
+      });
+    });
+
+    // Task selection checkboxes
+    document.querySelectorAll('.task-checkbox').forEach(checkbox => {
+      checkbox.addEventListener('change', (e) => {
+        const taskId = e.target.dataset.taskId;
+        const uiState = this.state.getUIState();
+        let selectedTasks = [...(uiState.selectedTasks || [])];
+        
+        if (e.target.checked) {
+          if (!selectedTasks.includes(taskId)) {
+            selectedTasks.push(taskId);
+          }
+        } else {
+          selectedTasks = selectedTasks.filter(id => id !== taskId);
+        }
+        
+        this.state.updateUIState({ selectedTasks });
+      });
+    });
   }
 }

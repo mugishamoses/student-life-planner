@@ -594,23 +594,69 @@
   }
 }
 
-/* Debug mode - force all modals to be visible */
-.modal-container--debug,
-.modal-container--open {
+/* Critical Modal Display Fixes */
+.modal-container--open,
+.modal-container[aria-hidden="false"] {
   display: flex !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 1000 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 1rem !important;
   opacity: 1 !important;
   visibility: visible !important;
+  pointer-events: auto !important;
   background-color: rgba(0, 0, 0, 0.5) !important;
 }
 
-.modal-container--debug .modal,
-.modal-container--open .modal {
+.modal-container--open .modal,
+.modal-container[aria-hidden="false"] .modal {
   display: block !important;
+  position: relative !important;
+  background: white !important;
+  border-radius: 8px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  max-width: 500px !important;
+  width: 100% !important;
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+  z-index: 1002 !important;
   opacity: 1 !important;
   transform: scale(1) translateY(0) !important;
   visibility: visible !important;
-  position: relative !important;
-  z-index: 1002 !important;
+  pointer-events: auto !important;
+}
+
+/* Loading state for submit button */
+.modal .btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  position: relative;
+}
+
+.modal .btn:disabled::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  margin: auto;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* Focus Management */

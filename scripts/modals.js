@@ -171,23 +171,30 @@ export class ModalManager {
       this.modalContainer.id = 'modal-container';
       this.modalContainer.className = 'modal-container';
       this.modalContainer.setAttribute('aria-hidden', 'true');
-      document.body.appendChild(this.modalContainer);
       
-      // Create backdrop only once
-      this.backdrop = document.createElement('div');
-      this.backdrop.className = 'modal-backdrop';
-      this.backdrop.setAttribute('aria-hidden', 'true');
-      this.modalContainer.appendChild(this.backdrop);
-    } else {
-      // Get existing backdrop
-      this.backdrop = this.modalContainer.querySelector('.modal-backdrop');
-      if (!this.backdrop) {
-        this.backdrop = document.createElement('div');
-        this.backdrop.className = 'modal-backdrop';
-        this.backdrop.setAttribute('aria-hidden', 'true');
-        this.modalContainer.appendChild(this.backdrop);
-      }
+      // Set initial styles to ensure proper positioning
+      this.modalContainer.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      `;
+      
+      document.body.appendChild(this.modalContainer);
+      console.log('Modal container created and added to body');
     }
+    
+    // Don't use backdrop - it's causing conflicts
+    // The modal container itself will serve as the backdrop
   }
 
   /**
@@ -195,13 +202,6 @@ export class ModalManager {
    * @private
    */
   setupEventListeners() {
-    // Handle backdrop clicks
-    this.backdrop.addEventListener('click', (event) => {
-      if (event.target === this.backdrop) {
-        this.hide();
-      }
-    });
-
     // Handle escape key globally
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape' && this.currentModal) {
@@ -271,7 +271,7 @@ export class ModalManager {
     const existingModals = this.modalContainer.querySelectorAll('.modal');
     existingModals.forEach(modal => modal.remove());
 
-    // Add modal AFTER backdrop to ensure proper z-index
+    // Add modal to container
     this.modalContainer.appendChild(modalElement);
     console.log('Modal added to container');
     console.log('Modal container children:', this.modalContainer.children.length);
@@ -334,7 +334,7 @@ export class ModalManager {
   showModal(modalElement) {
     console.log('showModal called with element:', modalElement);
     
-    // Force immediate visibility with inline styles
+    // Set container styles for backdrop effect
     this.modalContainer.style.cssText = `
       position: fixed !important;
       top: 0 !important;
@@ -348,24 +348,8 @@ export class ModalManager {
       padding: 1rem !important;
       opacity: 1 !important;
       visibility: visible !important;
+      pointer-events: auto !important;
       background-color: rgba(0, 0, 0, 0.5) !important;
-    `;
-    
-    // Set modal element styles
-    modalElement.style.cssText = `
-      position: relative !important;
-      background: white !important;
-      border-radius: 8px !important;
-      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1) !important;
-      max-width: 500px !important;
-      width: 100% !important;
-      max-height: 90vh !important;
-      overflow: hidden !important;
-      z-index: 1002 !important;
-      display: block !important;
-      opacity: 1 !important;
-      transform: scale(1) translateY(0) !important;
-      visibility: visible !important;
     `;
     
     // Show container
@@ -375,12 +359,28 @@ export class ModalManager {
     // Prevent body scroll
     document.body.classList.add('modal-open');
 
+    // Style the modal element
+    modalElement.style.cssText = `
+      position: relative !important;
+      background: white !important;
+      border-radius: 8px !important;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+      max-width: 500px !important;
+      width: 100% !important;
+      max-height: 90vh !important;
+      overflow-y: auto !important;
+      z-index: 1002 !important;
+      margin: 0 !important;
+      display: block !important;
+      opacity: 1 !important;
+      transform: scale(1) translateY(0) !important;
+      visibility: visible !important;
+    `;
+
     // Add classes for proper styling
     modalElement.classList.add('modal--open');
     
-    console.log('Modal should now be fully visible with inline styles');
-    console.log('Modal container computed style:', window.getComputedStyle(this.modalContainer).display);
-    console.log('Modal element computed style:', window.getComputedStyle(modalElement).display);
+    console.log('Modal should now be visible');
   }
 
   /**
@@ -391,16 +391,24 @@ export class ModalManager {
     modalElement.classList.remove('modal--open');
     modalElement.classList.add('modal--closing');
 
-    setTimeout(() => {
-      if (modalElement.parentNode) {
-        modalElement.parentNode.removeChild(modalElement);
-      }
-      
-      // Hide container if no more modals
-      if (this.modalStack.length === 0) {
-        this.modalContainer.classList.remove('modal-container--open');
-      }
-    }, 300);
+    // Use requestAnimationFrame for smoother animation
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        if (modalElement && modalElement.parentNode) {
+          modalElement.parentNode.removeChild(modalElement);
+        }
+        
+        // Hide container if no more modals
+        if (this.modalStack.length === 0) {
+          this.modalContainer.classList.remove('modal-container--open');
+          this.modalContainer.setAttribute('aria-hidden', 'true');
+          document.body.classList.remove('modal-open');
+          
+          // Clear any inline styles
+          this.modalContainer.style.cssText = '';
+        }
+      }, 200); // Reduced timeout for faster response
+    });
   }
 
   /**
@@ -701,28 +709,64 @@ export class ModalManager {
       // Validate form
       let isValid = true;
       inputs.forEach(input => {
-        if (!input.value.trim()) {
-          this.showFieldError(input, `${this.getFieldLabel(input)} is required`);
+        if (!this.validateField(input)) {
           isValid = false;
         }
       });
       
       if (!isValid) {
+        // Focus first invalid field
+        const firstError = form.querySelector('.form-input--error');
+        if (firstError) {
+          firstError.focus();
+        }
         return false;
       }
       
       console.log('Form is valid, submitting...');
       
+      // Disable submit button to prevent double submission
+      const submitButton = form.querySelector('button[type="submit"]');
+      const originalText = submitButton ? submitButton.textContent : '';
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = data.mode === 'edit' ? 'Updating...' : 'Adding...';
+      }
+      
       // Get form data
       const formData = new FormData(form);
       const data = Object.fromEntries(formData.entries());
       
-      // Submit form
+      console.log('Form data extracted:', data);
+      console.log('Form data keys:', Object.keys(data));
+      console.log('Form data values:', Object.values(data));
+      
+      // Submit form - DON'T hide modal yet, wait for success/error
       if (this.eventManager) {
-        this.eventManager.emit('submit-task-form', { data });
-        this.hide();
+        this.eventManager.emit('submit-task-form', { 
+          data,
+          onSuccess: () => {
+            this.hide();
+          },
+          onError: (error) => {
+            // Re-enable submit button
+            if (submitButton) {
+              submitButton.disabled = false;
+              submitButton.textContent = originalText || (data.mode === 'edit' ? 'Update Task' : 'Add Task');
+            }
+            // Show error in form
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'form-error';
+            errorDiv.textContent = error.message || 'Failed to save task. Please try again.';
+            form.insertBefore(errorDiv, form.firstChild);
+          }
+        });
       } else {
         console.error('Event manager not available');
+        if (submitButton) {
+          submitButton.disabled = false;
+          submitButton.textContent = originalText || (data.mode === 'edit' ? 'Update Task' : 'Add Task');
+        }
       }
       
       return false;

@@ -421,7 +421,7 @@ export class App {
     });
     
     // Register task form submission handler
-    this.eventManager.on('submit-task-form', ({ data }) => {
+    this.eventManager.on('submit-task-form', ({ data, onSuccess, onError }) => {
       if (this.state && this.toastManager) {
         try {
           // Validate required fields
@@ -437,7 +437,12 @@ export class App {
               duration: parseInt(data.duration) || 0,
               tag: data.tag || 'General'
             });
-            this.toastManager.show('Task updated successfully', 'success');
+            
+            // Small delay to ensure state is updated before closing modal
+            setTimeout(() => {
+              this.toastManager.show('Task updated successfully', 'success');
+              if (onSuccess) onSuccess();
+            }, 100);
           } else {
             // Add new task
             const newTask = {
@@ -454,12 +459,24 @@ export class App {
             const addedTask = this.state.addTask(newTask);
             console.log('Task added successfully:', addedTask);
             
-            this.toastManager.show('Task added successfully', 'success');
+            // Verify localStorage was updated
+            const savedState = localStorage.getItem('campusLifePlannerState');
+            console.log('localStorage after task add:', savedState ? JSON.parse(savedState) : 'No data');
+            
+            // Small delay to ensure state is updated and UI is refreshed before closing modal
+            setTimeout(() => {
+              this.toastManager.show('Task added successfully', 'success');
+              if (onSuccess) onSuccess();
+            }, 100);
           }
         } catch (error) {
           console.error('Task form submission failed:', error);
           this.toastManager.show('Failed to save task. Please try again.', 'error');
+          if (onError) onError(error);
         }
+      } else {
+        const error = new Error('Application not properly initialized');
+        if (onError) onError(error);
       }
     });
   }
@@ -720,4 +737,34 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Make app available globally for debugging
   window.app = app;
+  
+  // Add debugging functions
+  window.debugTask = {
+    checkLocalStorage: () => {
+      const data = localStorage.getItem('campusLifePlannerState');
+      console.log('localStorage data:', data ? JSON.parse(data) : 'No data');
+      return data ? JSON.parse(data) : null;
+    },
+    addTestTask: () => {
+      const testTask = {
+        title: 'Test Task',
+        dueDate: '2024-12-25',
+        duration: 60,
+        tag: 'Test'
+      };
+      console.log('Adding test task:', testTask);
+      const result = app.state.addTask(testTask);
+      console.log('Test task added:', result);
+      return result;
+    },
+    getTasks: () => {
+      const tasks = app.state.getTasks();
+      console.log('Current tasks:', tasks);
+      return tasks;
+    },
+    clearStorage: () => {
+      localStorage.removeItem('campusLifePlannerState');
+      console.log('localStorage cleared');
+    }
+  };
 });
