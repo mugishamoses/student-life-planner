@@ -23,7 +23,7 @@ A vanilla JavaScript task management application designed for students to organi
 ## Project Structure
 
 - `index.html` - Main application entry point
-- `scripts/` - JavaScript modules (state management, routing, UI, components)
+- `scripts/` - JavaScript modules (state management, routing, UI components)
 - `styles/` - CSS files for layout, components, and responsive design
 - `data/` - Initial task data and JSON templates
 
