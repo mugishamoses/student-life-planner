@@ -101,16 +101,9 @@ export class TasksPage extends BasePage {
   }
 
   setupEventListeners() {
-    // Add task button
-    document.querySelectorAll('[data-action="add-task"]').forEach(button => {
-      button.addEventListener('click', () => {
-        if (this.eventManager) {
-          this.eventManager.emit('add-task');
-        }
-      });
-    });
-
-    // Search input
+    console.log('TasksPage: Setting up event listeners');
+    
+    // Search input (needs manual handling for debouncing)
     const searchInput = document.getElementById('task-search');
     if (searchInput) {
       let searchTimeout;
@@ -124,7 +117,7 @@ export class TasksPage extends BasePage {
       });
     }
     
-    // Filter dropdown
+    // Filter dropdown (needs manual handling for change events)
     const filterSelect = document.getElementById('task-filter');
     if (filterSelect) {
       filterSelect.addEventListener('change', (e) => {
@@ -134,7 +127,7 @@ export class TasksPage extends BasePage {
       });
     }
     
-    // Sort dropdown
+    // Sort dropdown (needs manual handling for change events)
     const sortSelect = document.getElementById('task-sort');
     if (sortSelect) {
       sortSelect.addEventListener('change', (e) => {
@@ -143,55 +136,8 @@ export class TasksPage extends BasePage {
         }
       });
     }
-    
-    // View mode toggle
-    document.querySelectorAll('[data-action="set-view-mode"]').forEach(button => {
-      button.addEventListener('click', (e) => {
-        const viewMode = e.target.dataset.view;
-        if (this.eventManager) {
-          this.eventManager.emit('set-view-mode', { view: viewMode });
-        }
-      });
-    });
-    
-    // Search mode toggle
-    document.querySelectorAll('[data-action="toggle-search-mode"]').forEach(button => {
-      button.addEventListener('click', () => {
-        if (this.eventManager) {
-          this.eventManager.emit('toggle-search-mode');
-        }
-      });
-    });
 
-    // Task actions
-    document.querySelectorAll('[data-action="edit-task"]').forEach(button => {
-      button.addEventListener('click', (e) => {
-        const taskId = e.target.dataset.taskId;
-        if (taskId && this.eventManager) {
-          this.eventManager.emit('edit-task', { taskId });
-        }
-      });
-    });
-
-    document.querySelectorAll('[data-action="delete-task"]').forEach(button => {
-      button.addEventListener('click', (e) => {
-        const taskId = e.target.dataset.taskId;
-        if (taskId && this.eventManager) {
-          this.eventManager.emit('delete-task', { taskId });
-        }
-      });
-    });
-
-    document.querySelectorAll('[data-action="toggle-task-status"]').forEach(button => {
-      button.addEventListener('click', (e) => {
-        const taskId = e.target.dataset.taskId;
-        if (taskId && this.eventManager) {
-          this.eventManager.emit('toggle-task-status', { taskId });
-        }
-      });
-    });
-
-    // Task selection checkboxes
+    // Task selection checkboxes (needs manual handling for state management)
     document.querySelectorAll('.task-checkbox').forEach(checkbox => {
       checkbox.addEventListener('change', (e) => {
         const taskId = e.target.dataset.taskId;
@@ -210,7 +156,7 @@ export class TasksPage extends BasePage {
       });
     });
 
-    // Select all checkbox
+    // Select all checkbox (needs manual handling for state management)
     const selectAllCheckbox = document.getElementById('select-all-tasks');
     if (selectAllCheckbox) {
       selectAllCheckbox.addEventListener('change', (e) => {
@@ -226,7 +172,7 @@ export class TasksPage extends BasePage {
       });
     }
 
-    // Bulk actions
+    // Bulk actions (needs manual handling for complex logic)
     document.querySelectorAll('[data-action="bulk-complete"]').forEach(button => {
       button.addEventListener('click', () => {
         this.handleBulkStatusChange('Complete');
@@ -250,6 +196,8 @@ export class TasksPage extends BasePage {
         }
       });
     });
+    
+    console.log('TasksPage: Event listeners set up, relying on EventManager delegation for task actions');
   }
 
   handleBulkStatusChange(newStatus) {
@@ -305,35 +253,9 @@ export class TasksPage extends BasePage {
   }
 
   setupTaskEventListeners() {
-    // Task actions
-    document.querySelectorAll('[data-action="edit-task"]').forEach(button => {
-      button.addEventListener('click', (e) => {
-        const taskId = e.target.dataset.taskId;
-        if (taskId && this.eventManager) {
-          this.eventManager.emit('edit-task', { taskId });
-        }
-      });
-    });
-
-    document.querySelectorAll('[data-action="delete-task"]').forEach(button => {
-      button.addEventListener('click', (e) => {
-        const taskId = e.target.dataset.taskId;
-        if (taskId && this.eventManager) {
-          this.eventManager.emit('delete-task', { taskId });
-        }
-      });
-    });
-
-    document.querySelectorAll('[data-action="toggle-task-status"]').forEach(button => {
-      button.addEventListener('click', (e) => {
-        const taskId = e.target.dataset.taskId;
-        if (taskId && this.eventManager) {
-          this.eventManager.emit('toggle-task-status', { taskId });
-        }
-      });
-    });
-
-    // Task selection checkboxes
+    console.log('TasksPage: setupTaskEventListeners called - relying on EventManager delegation');
+    
+    // Only set up task selection checkboxes since they need state management
     document.querySelectorAll('.task-checkbox').forEach(checkbox => {
       checkbox.addEventListener('change', (e) => {
         const taskId = e.target.dataset.taskId;
@@ -351,5 +273,7 @@ export class TasksPage extends BasePage {
         this.state.updateUIState({ selectedTasks });
       });
     });
+    
+    // Task actions (edit, delete, toggle-status) are handled automatically by EventManager delegation
   }
 }

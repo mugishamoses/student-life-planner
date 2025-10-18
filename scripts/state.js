@@ -7,8 +7,23 @@ import { getDataManager } from "./data-manager.js";
 
 export class AppState {
   constructor() {
+    // Initialize storage first
+    this.storage = null;
+    this.dataManager = null;
+
+    // Try to load state from localStorage first
+    let savedState = null;
+    try {
+      const saved = localStorage.getItem("campusLifePlannerState");
+      if (saved) {
+        savedState = JSON.parse(saved);
+      }
+    } catch (error) {
+      console.error("Failed to load from localStorage:", error);
+    }
+
     this.state = {
-      tasks: [],
+      tasks: savedState?.tasks || [],
       settings: {
         timeUnit: "both",
         weeklyHourTarget: 40,
@@ -16,6 +31,7 @@ export class AppState {
         defaultTag: "General",
         sortPreference: "date-newest",
         searchCaseSensitive: false,
+        ...(savedState?.settings || {}),
       },
       ui: {
         currentPage: "about",
@@ -27,15 +43,19 @@ export class AppState {
         selectedTasks: [],
         toastMessage: null,
         viewMode: "table",
+        ...(savedState?.ui || {}),
       },
     };
 
     this.observers = [];
-    this.dataManager = getDataManager();
     this.isInitialized = false;
 
     // Initialize asynchronously
-    this.initializeAsync();
+    this.initializeAsync().catch((error) => {
+      console.error("State initialization failed:", error);
+      // Set initialized to true even on error to prevent app from hanging
+      this.isInitialized = true;
+    });
   }
 
   /**
@@ -76,45 +96,138 @@ export class AppState {
   }
 
   addTask(taskData) {
-    console.log("addTask called with:", taskData);
+    console.log("=== STATE: addTask called ===");
+    console.log("Input data:", taskData);
+    console.log("Current tasks count:", this.state.tasks.length);
 
-    const now = new Date().toISOString();
-    // Create base task with required fields
-    const task = {
-      id: this.generateTaskId(),
-      createdAt: now,
-      updatedAt: now,
-      status: "Pending",
-      // Handle potential undefined or null values
-      title: taskData.title || "",
-      dueDate: taskData.dueDate || "",
-      duration: parseInt(taskData.duration) || 0,
-      tag: taskData.tag || this.state.settings.defaultTag,
-    };
-
-    console.log("Created task object:", task);
-
-    // Validate task before adding
-    if (!task.title || !task.dueDate) {
-      console.error("Task validation failed:", {
-        title: task.title,
-        dueDate: task.dueDate,
-      });
-      throw new Error("Task title and due date are required");
+    // Validate required fields
+    if (!taskData.title?.trim() || !taskData.dueDate || !taskData.duration) {
+      console.error("STATE: Missing required fields:", taskData);
+      throw new Error("All required fields must be provided");
     }
 
-    console.log("Tasks before adding:", this.state.tasks.length);
+    // Create task with validated data
+    let task = {
+      id: "task_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9),
+      title: taskData.title.trim(),
+      dueDate: taskData.dueDate,
+      duration: parseInt(taskData.duration),
+      tag: taskData.tag?.trim() || "General",
+      status: "Pending",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    console.log("STATE: Created task object:", task);
+
+    // Ensure tasks array exists
+    if (!Array.isArray(this.state.tasks)) {
+      console.log("STATE: Initializing tasks array");
+      this.state.tasks = [];
+    }
+
+    // Add to state
     this.state.tasks.push(task);
-    console.log("Tasks after adding:", this.state.tasks.length);
+    console.log(
+      "STATE: Task added to array, new count:",
+      this.state.tasks.length
+    );
 
-    // Ensure storage is updated
-    const saveResult = this.saveToStorage();
-    console.log("Save to storage result:", saveResult);
+    // Save to localStorage directly
+    try {
+      console.log("STATE: Attempting to save to storage...");
+      const success = this.saveToStorage();
+      if (!success) {
+        console.error("STATE: Save to storage failed");
+        // Rollback if save failed
+        this.state.tasks = this.state.tasks.filter((t) => t.id !== task.id);
+        throw new Error("Failed to save task. Please try again.");
+      }
 
-    // Notify subscribers of change
-    this.notify({ type: "TASK_ADDED", task });
+      console.log("STATE: Task saved to storage successfully");
 
-    return task;
+      // Notify UI to update
+      console.log("STATE: Notifying observers...");
+      console.log("STATE: Number of observers:", this.observers.length);
+      this.notify({ type: "TASK_ADDED", task });
+      console.log("STATE: Observers notified");
+
+      console.log("=== STATE: addTask completed successfully ===");
+      return task;
+    } catch (error) {
+      console.error("STATE: Failed to save task:", error);
+      // Remove task from state if save fails
+      this.state.tasks = this.state.tasks.filter((t) => t.id !== task.id);
+      throw error;
+    }
+  }
+
+  /**
+   * Save current state to storage
+   * @returns {boolean} Success status
+   */
+  saveToStorage() {
+    try {
+      // Create a clean copy of the state for storage
+      const stateToSave = {
+        tasks: this.state.tasks,
+        settings: this.state.settings,
+        ui: {
+          sortBy: this.state.ui.sortBy,
+          filterBy: this.state.ui.filterBy,
+          searchMode: this.state.ui.searchMode,
+          viewMode: this.state.ui.viewMode,
+        },
+      };
+
+      // Save directly to localStorage
+      const serializedState = JSON.stringify(stateToSave);
+      localStorage.setItem("campusLifePlannerState", serializedState);
+
+      // Verify the save
+      const saved = localStorage.getItem("campusLifePlannerState");
+      if (!saved) {
+        throw new Error("Data was not saved to localStorage");
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Error saving to storage:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Load state from storage
+   */
+  async loadFromStorage() {
+    if (!this.storage) {
+      console.error("Storage not initialized");
+      return;
+    }
+
+    try {
+      const savedState = this.storage.load("campusLifePlannerState");
+
+      if (savedState) {
+        // Merge saved state with current state
+        this.state = {
+          tasks: Array.isArray(savedState.tasks) ? savedState.tasks : [],
+          settings: {
+            ...this.state.settings,
+            ...savedState.settings,
+          },
+          ui: {
+            ...this.state.ui,
+            ...savedState.ui,
+          },
+        };
+
+        console.log("State loaded from storage:", this.state);
+      }
+    } catch (error) {
+      console.error("Error loading from storage:", error);
+    }
   }
 
   updateTask(id, updates) {
@@ -138,15 +251,22 @@ export class AppState {
 
   deleteTask(id) {
     const taskIndex = this.state.tasks.findIndex((task) => task.id === id);
+
     if (taskIndex === -1) {
       throw new Error(`Task with id ${id} not found`);
     }
 
     const deletedTask = this.state.tasks[taskIndex];
     this.state.tasks.splice(taskIndex, 1);
-    this.saveToStorage();
-    this.notify({ type: "TASK_DELETED", task: deletedTask });
 
+    const saveSuccess = this.saveToStorage();
+    if (!saveSuccess) {
+      // Rollback
+      this.state.tasks.splice(taskIndex, 0, deletedTask);
+      throw new Error("Failed to save after deleting task");
+    }
+
+    this.notify({ type: "TASK_DELETED", task: deletedTask });
     return deletedTask;
   }
 
@@ -222,14 +342,19 @@ export class AppState {
    */
   async initializeAsync() {
     try {
-      // Clear any stale data first
-      this.state.tasks = [];
+      // Import data manager
+      const { getDataManager } = await import("./data-manager.js");
+      this.dataManager = getDataManager();
+
+      // Import storage
+      const { storage } = await import("./storage.js");
+      this.storage = storage;
 
       // First, try to load from localStorage
-      await this.loadFromStorage();
+      this.loadFromStorage();
 
       // If no tasks in localStorage, try to load from JSON file
-      if (!this.state.tasks.length) {
+      if (!this.state.tasks.length && this.dataManager) {
         const initialData = await this.dataManager.initialize(this.state);
 
         if (initialData) {
@@ -256,7 +381,7 @@ export class AppState {
           );
 
           // Save validated state to localStorage
-          await this.saveToStorage();
+          this.saveToStorage();
 
           console.log("AppState: Initialized with JSON file data");
         }

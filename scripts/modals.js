@@ -608,9 +608,12 @@ export class ModalManager {
             type="button" 
             class="btn ${confirmClass}" 
             data-action="${confirmAction || 'close-modal'}"
-            ${confirmData ? Object.entries(confirmData).map(([key, value]) => 
-              `data-${key}="${this.escapeHtml(String(value))}"`
-            ).join(' ') : ''}
+            ${confirmData ? Object.entries(confirmData).map(([key, value]) => {
+              // Convert camelCase to kebab-case for data attributes
+              const kebabKey = key.replace(/([A-Z])/g, '-$1').toLowerCase();
+              const dataAttr = `data-${kebabKey}="${this.escapeHtml(String(value))}"`;
+              return dataAttr;
+            }).join(' ') : ''}
           >
             ${this.escapeHtml(confirmText)}
           </button>
@@ -698,6 +701,14 @@ export class ModalManager {
     form.addEventListener('submit', (event) => {
       event.preventDefault();
       
+      // Prevent multiple submissions
+      if (form.dataset.submitting === 'true') {
+        console.log('Form already submitting, ignoring duplicate submission');
+        return false;
+      }
+      
+      form.dataset.submitting = 'true';
+      
       // Clear any existing error messages
       const errorMessages = form.querySelectorAll('.form-error');
       errorMessages.forEach(error => {
@@ -715,6 +726,7 @@ export class ModalManager {
       });
       
       if (!isValid) {
+        form.dataset.submitting = 'false';
         // Focus first invalid field
         const firstError = form.querySelector('.form-input--error');
         if (firstError) {
@@ -730,29 +742,80 @@ export class ModalManager {
       const originalText = submitButton ? submitButton.textContent : '';
       if (submitButton) {
         submitButton.disabled = true;
-        submitButton.textContent = data.mode === 'edit' ? 'Updating...' : 'Adding...';
+        submitButton.textContent = 'Adding...';
       }
       
-      // Get form data
+      // Get form data and ensure all fields are present
       const formData = new FormData(form);
-      const data = Object.fromEntries(formData.entries());
+      const formEntries = Object.fromEntries(formData.entries());
       
-      console.log('Form data extracted:', data);
-      console.log('Form data keys:', Object.keys(data));
-      console.log('Form data values:', Object.values(data));
+      // Validate all required fields have values
+      const title = formEntries.title?.trim();
+      const dueDate = formEntries.dueDate;
+      const duration = formEntries.duration;
+      
+      if (!title || !dueDate || !duration) {
+        console.error('Missing required fields:', { title, dueDate, duration });
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'form-error';
+        errorDiv.textContent = 'Please fill in all required fields';
+        form.insertBefore(errorDiv, form.firstChild);
+        
+        // Re-enable form
+        form.dataset.submitting = 'false';
+        if (submitButton) {
+          submitButton.disabled = false;
+          submitButton.textContent = originalText || 'Add Task';
+        }
+        return false;
+      }
+      
+      // Clean up and validate the data before submitting
+      const cleanData = {
+        title: title,
+        dueDate: dueDate,
+        duration: parseInt(duration),
+        tag: formEntries.tag?.trim() || 'General',
+        mode: formEntries.mode || 'add'
+      };
+      
+      // Additional validation
+      if (isNaN(cleanData.duration) || cleanData.duration <= 0) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'form-error';
+        errorDiv.textContent = 'Duration must be a positive number';
+        form.insertBefore(errorDiv, form.firstChild);
+        
+        // Re-enable form
+        form.dataset.submitting = 'false';
+        if (submitButton) {
+          submitButton.disabled = false;
+          submitButton.textContent = originalText || 'Add Task';
+        }
+        return false;
+      }
+      
+      console.log('=== MODAL FORM SUBMISSION ===');
+      console.log('Clean form data:', cleanData);
+      console.log('Event manager available:', !!this.eventManager);
       
       // Submit form - DON'T hide modal yet, wait for success/error
       if (this.eventManager) {
-        this.eventManager.emit('submit-task-form', { 
-          data,
+        console.log('Emitting submit-task-form event...');
+        
+        // Store callbacks for the handler to use
+        this._currentSubmissionCallbacks = {
           onSuccess: () => {
+            console.log('=== MODAL: Task submission successful, closing modal ===');
             this.hide();
           },
           onError: (error) => {
-            // Re-enable submit button
+            console.error('=== MODAL: Task submission failed ===', error);
+            // Re-enable form
+            form.dataset.submitting = 'false';
             if (submitButton) {
               submitButton.disabled = false;
-              submitButton.textContent = originalText || (data.mode === 'edit' ? 'Update Task' : 'Add Task');
+              submitButton.textContent = originalText || 'Add Task';
             }
             // Show error in form
             const errorDiv = document.createElement('div');
@@ -760,12 +823,17 @@ export class ModalManager {
             errorDiv.textContent = error.message || 'Failed to save task. Please try again.';
             form.insertBefore(errorDiv, form.firstChild);
           }
-        });
+        };
+        
+        this.eventManager.emit('submit-task-form', cleanData);
+        
+        console.log('Event emitted, waiting for response...');
       } else {
-        console.error('Event manager not available');
+        console.error('Event manager not available in modal');
+        form.dataset.submitting = 'false';
         if (submitButton) {
           submitButton.disabled = false;
-          submitButton.textContent = originalText || (data.mode === 'edit' ? 'Update Task' : 'Add Task');
+          submitButton.textContent = originalText || 'Add Task';
         }
       }
       
@@ -886,56 +954,7 @@ export class ModalManager {
     return label ? label.textContent.replace('*', '').trim() : field.name;
   }
 
-  /**
-   * Handle task form submission
-   * @private
-   */
-  handleTaskFormSubmit(form) {
-    // Prevent default form submission
-    event.preventDefault();
-    
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData.entries());
-    
-    // Validate all fields
-    const inputs = form.querySelectorAll('input[required]');
-    let isValid = true;
-    
-    inputs.forEach(input => {
-      if (!this.validateField(input)) {
-        isValid = false;
-      }
-    });
 
-    if (!isValid) {
-      // Focus first invalid field
-      const firstError = form.querySelector('.form-input--error');
-      if (firstError) {
-        firstError.focus();
-      }
-      return;
-    }
-
-    // Convert duration to number
-    if (data.duration) {
-      data.duration = parseInt(data.duration, 10);
-    }
-
-    // Trigger form submission event
-    if (this.eventManager) {
-      try {
-        this.eventManager.emit('submit-task-form', { data });
-        // Close modal only after successful submission
-        this.hide();
-      } catch (error) {
-        console.error('Error submitting task:', error);
-        const errorMsg = document.createElement('div');
-        errorMsg.className = 'form-error';
-        errorMsg.textContent = 'Failed to save task. Please try again.';
-        form.insertBefore(errorMsg, form.firstChild);
-      }
-    }
-  }
 
   /**
    * Announce modal to screen readers

@@ -28,6 +28,25 @@ export class App {
   /**
    * Initialize the application
    */
+  /**
+   * Wait for state to be fully initialized
+   * @private
+   */
+  async waitForStateInitialization() {
+    if (!this.state) {
+      throw new Error('State not initialized');
+    }
+    
+    // Wait for up to 5 seconds for state to initialize
+    for (let i = 0; i < 50; i++) {
+      if (this.state.isInitialized) {
+        return true;
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    throw new Error('State initialization timeout');
+  }
+
   async init() {
     try {
       console.log('Initializing Campus Life Planner...');
@@ -153,24 +172,51 @@ export class App {
       }
     });
     
-    this.eventManager.on('delete-task', ({ data }) => {
+
+    
+    this.eventManager.on('delete-task', (eventData) => {
+      // EventManager passes: { action, data, element, preventDefault, stopPropagation }
+      const data = eventData.data || eventData;
+      const taskId = data.taskId;
+      
+      if (!taskId) {
+        console.error('No taskId provided for deletion');
+        this.toastManager?.show('Error: No task ID provided', 'error');
+        return;
+      }
+      
       if (this.modalManager) {
         this.modalManager.show('confirm', {
           title: 'Delete Task',
           message: 'Are you sure you want to delete this task? This action cannot be undone.',
           confirmAction: 'confirm-delete-task',
-          confirmData: { taskId: data.taskId },
+          confirmData: { taskId: taskId },
           confirmClass: 'btn--danger',
           confirmText: 'Delete Task'
         });
       }
     });
     
-    this.eventManager.on('confirm-delete-task', ({ data }) => {
+    this.eventManager.on('confirm-delete-task', (eventData) => {
+      // EventManager passes: { action, data, element, preventDefault, stopPropagation }
+      const data = eventData.data || eventData;
+      const taskId = data.taskId;
+      
+      if (!taskId) {
+        console.error('No taskId provided for confirmation');
+        this.toastManager?.show('Error: No task ID provided for deletion', 'error');
+        return;
+      }
+      
       if (this.state && this.toastManager) {
-        this.state.deleteTask(data.taskId);
-        this.modalManager.hide();
-        this.toastManager.show('Task deleted successfully', 'success');
+        try {
+          const deletedTask = this.state.deleteTask(taskId);
+          this.modalManager?.hide();
+          this.toastManager.show('Task deleted successfully', 'success');
+        } catch (error) {
+          console.error('Failed to delete task:', error);
+          this.toastManager.show('Failed to delete task: ' + error.message, 'error');
+        }
       }
     });
     
@@ -420,63 +466,92 @@ export class App {
       }
     });
     
-    // Register task form submission handler
-    this.eventManager.on('submit-task-form', ({ data, onSuccess, onError }) => {
-      if (this.state && this.toastManager) {
-        try {
-          // Validate required fields
-          if (!data.title || !data.dueDate) {
-            throw new Error('Title and due date are required');
-          }
-
-          if (data.mode === 'edit') {
-            // Update existing task
-            this.state.updateTask(data.id, {
-              title: data.title,
-              dueDate: data.dueDate,
-              duration: parseInt(data.duration) || 0,
-              tag: data.tag || 'General'
-            });
-            
-            // Small delay to ensure state is updated before closing modal
-            setTimeout(() => {
-              this.toastManager.show('Task updated successfully', 'success');
-              if (onSuccess) onSuccess();
-            }, 100);
-          } else {
-            // Add new task
-            const newTask = {
-              title: data.title,
-              dueDate: data.dueDate,
-              duration: parseInt(data.duration) || 0,
-              tag: data.tag || 'General',
-              status: 'Pending'
-            };
-            
-            // Log the task being added
-            console.log('Adding new task:', newTask);
-            
-            const addedTask = this.state.addTask(newTask);
-            console.log('Task added successfully:', addedTask);
-            
-            // Verify localStorage was updated
-            const savedState = localStorage.getItem('campusLifePlannerState');
-            console.log('localStorage after task add:', savedState ? JSON.parse(savedState) : 'No data');
-            
-            // Small delay to ensure state is updated and UI is refreshed before closing modal
-            setTimeout(() => {
-              this.toastManager.show('Task added successfully', 'success');
-              if (onSuccess) onSuccess();
-            }, 100);
-          }
-        } catch (error) {
-          console.error('Task form submission failed:', error);
-          this.toastManager.show('Failed to save task. Please try again.', 'error');
-          if (onError) onError(error);
+    // Single canonical task form submission handler
+    this.eventManager.on('submit-task-form', async ({ data }) => {
+      console.log('=== TASK FORM SUBMISSION HANDLER CALLED ===');
+      console.log('Received data:', data);
+      
+      // Get callbacks from modal manager
+      const callbacks = this.modalManager._currentSubmissionCallbacks || {};
+      const { onSuccess, onError } = callbacks;
+      
+      console.log('Callbacks available:', { 
+        onSuccess: typeof onSuccess, 
+        onError: typeof onError 
+      });
+      
+      try {
+        // Validate required fields
+        if (!data.title?.trim() || !data.dueDate || !data.duration) {
+          console.error('Validation failed - missing required fields:', {
+            title: data.title,
+            dueDate: data.dueDate,
+            duration: data.duration
+          });
+          throw new Error('Please fill in all required fields');
         }
-      } else {
-        const error = new Error('Application not properly initialized');
-        if (onError) onError(error);
+        
+        // Clean and validate data
+        const cleanData = {
+          title: data.title.trim(),
+          dueDate: data.dueDate,
+          duration: parseInt(data.duration),
+          tag: data.tag?.trim() || 'General',
+          mode: data.mode || 'add'
+        };
+        
+        console.log('Clean data prepared:', cleanData);
+        
+        if (isNaN(cleanData.duration) || cleanData.duration <= 0) {
+          console.error('Duration validation failed:', cleanData.duration);
+          throw new Error('Duration must be a positive number');
+        }
+        
+        console.log('About to add task to state...');
+        
+        // Add task using state management
+        const addedTask = this.state.addTask(cleanData);
+        console.log('Task successfully added to state:', addedTask);
+        
+        // Show success message
+        if (this.toastManager) {
+          this.toastManager.show('Task added successfully', 'success');
+          console.log('Success toast shown');
+        }
+        
+        // Call success callback to close modal
+        if (onSuccess) {
+          console.log('Calling onSuccess callback...');
+          onSuccess();
+        } else {
+          console.warn('No onSuccess callback provided');
+        }
+        
+        // Clear callbacks
+        if (this.modalManager._currentSubmissionCallbacks) {
+          delete this.modalManager._currentSubmissionCallbacks;
+        }
+        
+        console.log('=== TASK SUBMISSION COMPLETED SUCCESSFULLY ===');
+      } catch (error) {
+        console.error('=== TASK SUBMISSION FAILED ===');
+        console.error('Error details:', error);
+        
+        if (this.toastManager) {
+          this.toastManager.show(error.message || 'Failed to save task', 'error');
+        }
+        
+        if (onError) {
+          console.log('Calling onError callback...');
+          onError(error);
+        } else {
+          console.warn('No onError callback provided');
+        }
+        
+        // Clear callbacks
+        if (this.modalManager._currentSubmissionCallbacks) {
+          delete this.modalManager._currentSubmissionCallbacks;
+        }
       }
     });
   }

@@ -6,8 +6,49 @@ import { BaseComponent } from '../ui-base.js';
 import { filterTasks, sortTasks, searchTasks } from '../task-utils.js';
 
 export class TaskListComponent extends BaseComponent {
+  constructor(state) {
+    super(state);
+    this.lastRenderTime = 0;
+    this.renderThrottle = 100; // Throttle renders to every 100ms
+    
+    // Subscribe to state changes with throttling
+    this.state.subscribe((changes) => {
+      if (changes.type === "TASK_ADDED" || changes.type === "TASK_UPDATED" || changes.type === "TASK_DELETED") {
+        console.log('TaskList: State changed, scheduling rerender');
+        this.scheduleRerender();
+      }
+    });
+  }
+
+  scheduleRerender() {
+    const now = Date.now();
+    if (now - this.lastRenderTime < this.renderThrottle) {
+      // Throttle rapid re-renders
+      clearTimeout(this.renderTimeout);
+      this.renderTimeout = setTimeout(() => {
+        this.rerender();
+      }, this.renderThrottle);
+    } else {
+      this.rerender();
+    }
+  }
+
+  rerender() {
+    const taskList = document.getElementById('task-list');
+    if (taskList) {
+      const newContent = this.render();
+      if (taskList.innerHTML !== newContent) {
+        taskList.innerHTML = newContent;
+        this.lastRenderTime = Date.now();
+        console.log('TaskList: Re-rendered with updated content');
+      }
+    }
+  }
+
   render() {
+    console.log('TaskList: Rendering');
     const tasks = this.state.getTasks();
+    console.log('Current tasks:', tasks);
     const uiState = this.state.getUIState();
     
     if (tasks.length === 0) {

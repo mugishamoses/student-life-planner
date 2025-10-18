@@ -697,27 +697,10 @@ export class EventManager {
    * @private
    */
   handleTaskFormSubmit(form, event) {
-    event.preventDefault();
-    
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData.entries());
-    
-    // Basic validation
-    if (!data.title || !data.dueDate) {
-      console.error('Missing required fields');
-      return;
-    }
-    
-    // Convert duration to number
-    if (data.duration) {
-      data.duration = parseInt(data.duration, 10);
-    }
-    
-    console.log('Submitting task form with data:', data);
-    
-    this.emit('submit-task-form', { data });
-    
-    return false; // Prevent form submission
+    // This handler is now disabled to prevent conflicts
+    // Task form submission is handled by the modal manager
+    console.log('Task form submission intercepted by events.js - delegating to modal manager');
+    return false;
   }
 
   /**
