@@ -1,4 +1,4 @@
-# Campus Life Planner
+# Campus Life Planners
 
 A vanilla JavaScript task management application designed for students to organize their academic workload and stay productive.
 
